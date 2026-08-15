@@ -29,8 +29,8 @@ import {
   TransferSingle as SubTransferSingle,
   TransferBatch as SubTransferBatch,
 } from "../generated/templates/Subregistry/UserRegistry";
-import { Subregistry as SubregistryTemplate } from "../generated/templates";
-import { Domain, ExpiryExtended, NameTransferred, NewOwner, Registration, Transfer } from "../generated/schema";
+import { ResolverLive as ResolverLiveTemplate, Subregistry as SubregistryTemplate } from "../generated/templates";
+import { Domain, ExpiryExtended, NameTransferred, NewOwner, NewResolver, Registration, Resolver, Transfer } from "../generated/schema";
 import {
   byteArrayFromHex,
   checkValidLabel,
@@ -225,6 +225,60 @@ function transferSingleCore(
   }
 }
 
+// Port of v1 handleNewResolver, driven by v2 ResolverUpdated. Also lazily
+// spawns the ResolverLive template: on the beta deployment resolvers are NOT
+// deployed through VerifiableFactory, so this is the primary discovery path.
+function resolverUpdatedCore(
+  registry: Address,
+  tokenId: BigInt,
+  resolverAddr: Address,
+  blockNumber: BigInt,
+  logIndex: BigInt,
+  txHash: Bytes,
+): void {
+  const node = loadNodeForToken(registry, tokenId);
+  if (!node) {
+    log.warning("ResolverUpdated for unknown tokenId {} on {}", [
+      tokenId.toString(),
+      registry.toHexString(),
+    ]);
+    return;
+  }
+
+  let id: string | null;
+  if (resolverAddr == Address.zero()) {
+    id = null;
+  } else {
+    id = resolverAddr.toHexString() + "-" + node;
+    let resolver = Resolver.load(id!);
+    if (resolver == null) {
+      resolver = new Resolver(id!);
+      resolver.domain = node;
+      resolver.address = resolverAddr;
+      resolver.save();
+      ResolverLiveTemplate.create(resolverAddr);
+    }
+  }
+
+  const domain = Domain.load(node);
+  if (domain == null) return;
+  domain.resolver = id;
+  if (id != null) {
+    let resolver = Resolver.load(id!);
+    domain.resolvedAddress = resolver != null ? resolver.addr : null;
+  } else {
+    domain.resolvedAddress = null;
+  }
+  saveDomain(domain);
+
+  let domainEvent = new NewResolver(createEventID(blockNumber, logIndex));
+  domainEvent.blockNumber = blockNumber.toI32();
+  domainEvent.transactionID = txHash;
+  domainEvent.domain = node;
+  domainEvent.resolver = id != null ? id! : EMPTY_ADDRESS;
+  domainEvent.save();
+}
+
 function subregistryUpdatedCore(
   registry: Address,
   tokenId: BigInt,
@@ -308,7 +362,9 @@ export function handleExpiryUpdated(event: ExpiryUpdated): void {
 export function handleSubregistryUpdated(event: SubregistryUpdated): void {
   subregistryUpdatedCore(event.address, event.params.tokenId, event.params.subregistry);
 }
-export function handleResolverUpdated(event: ResolverUpdated): void {}
+export function handleResolverUpdated(event: ResolverUpdated): void {
+  resolverUpdatedCore(event.address, event.params.tokenId, event.params.resolver, event.block.number, event.logIndex, event.transaction.hash);
+}
 export function handleTokenRegenerated(event: TokenRegenerated): void {
   tokenRegeneratedCore(event.address, event.params.oldTokenId, event.params.newTokenId);
 }
@@ -406,7 +462,9 @@ export function handleSubregistryExpiryUpdated(event: SubExpiryUpdated): void {
 export function handleSubregistrySubregistryUpdated(event: SubSubregistryUpdated): void {
   subregistryUpdatedCore(event.address, event.params.tokenId, event.params.subregistry);
 }
-export function handleSubregistryResolverUpdated(event: SubResolverUpdated): void {}
+export function handleSubregistryResolverUpdated(event: SubResolverUpdated): void {
+  resolverUpdatedCore(event.address, event.params.tokenId, event.params.resolver, event.block.number, event.logIndex, event.transaction.hash);
+}
 export function handleSubregistryTokenRegenerated(event: SubTokenRegenerated): void {
   tokenRegeneratedCore(event.address, event.params.oldTokenId, event.params.newTokenId);
 }

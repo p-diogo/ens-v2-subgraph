@@ -22,6 +22,8 @@ export const ROOT_REGISTRY = "0xc960f7217d3643b525ef36bec8adf86953cd9ab8";
 // Migration controllers register names directly on ETHRegistry; their address
 // as LabelRegistered.sender classifies a v1->v2 migrated name.
 // Re-pin on RC redeploy (networks.json is the source of truth).
+export const PERMISSIONED_RESOLVER_IMPL = "0xdce5205a553573ffd47629327dddf36186022ffa";
+export const USER_REGISTRY_IMPL = "0x0f99e7ea74903afcb7224d0354fd7428a6f92917";
 export const LOCKED_MIGRATION_CONTROLLER = "0xf91c34ed840889ed96f806f882fd50506a336edb";
 export const UNLOCKED_MIGRATION_CONTROLLER = "0x056138ef5660f7113a3b0adc08ac3683310e7fbc";
 
