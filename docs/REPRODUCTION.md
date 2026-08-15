@@ -135,13 +135,16 @@ up the initial backfill.
 Studio hosts the subgraph 24/7 with its own Sepolia indexing infrastructure
 (no RPC key needed on our side for indexing):
 
-1. Create a subgraph named `ens-v2-subgraph` at thegraph.com/studio.
-2. Copy the deploy key (Subgraph → Settings → Deploy Key) and authenticate:
-   `graph auth <DEPLOY_KEY>`
-3. Deploy: `npm run deploy:studio`
-   (equivalent to `graph deploy ens-v2-subgraph --studio
-   --version-label v0.1.0-sepolia-beta`)
-4. The query endpoint is
-   `https://api.studio.thegraph.com/query/<ACCOUNT_ID>/ens-v2-subgraph/<VERSION>`
-   — share that with the ENS team. RC redeploy = edit networks.json +
-   subgraph.yaml addresses, redeploy with a new version label.
+1. Create the subgraph at thegraph.com/studio (ours is slug `ens-v-2-sepolia`)
+   and authenticate once with the deploy key: `graph auth <DEPLOY_KEY>`
+   (graph-cli 0.98 stores it in `~/.graph-cli.json`; the old `--studio` deploy
+   flag is gone — Studio is inferred from the stored auth).
+2. Deploy: `npm run deploy:studio`
+   (= `graph deploy ens-v-2-sepolia --version-label v0.1.0-sepolia-beta`)
+3. Live endpoint (verified 2026-08-15: synced, zero indexing errors, all three
+   harnesses green against it — schema corpus, on-chain parity, ENSNode
+   record parity):
+   `https://api.studio.thegraph.com/query/41768/ens-v-2-sepolia/v0.1.0-sepolia-beta`
+4. RC redeploy = edit networks.json + subgraph.yaml addresses, redeploy with a
+   new version label. NOTE: Studio indexes with its own Sepolia RPC — the
+   private RPC key is only needed for the local ENSIndexer oracle.
