@@ -40,11 +40,16 @@ entities) or covered by an entry below. The parity harness
   truth. Compares `findExpiry(label)` (raw-returning, not expiry-masked)
   against `Registration.expiryDate` and `Domain.expiryDate` for every 2LD.
   2026-08-15: 10/10 names green on the live beta deployment.
-- **ENSNode oracle** (`harness/ensnode-parity.test.ts`):
-  `api.v2-sepolia.ensnode.io` currently serves a mismatched TLS certificate
-  (`*.up.railway.app`), so the oracle hard-fails by default;
-  `ENSNODE_OPTIONAL=1` skips it explicitly (it can never silently pass).
-  Fallback when needed: self-host Namehash's ENSIndexer pointed at sepolia-v2
-  and set `ENSNODE_URL` to the local `/subgraph` endpoint.
+- **ENSNode oracle** (`harness/ensnode-parity.test.ts`): as of 2026-08-15 the
+  oracle is unreachable and this is NOT just TLS: bypassing certificate
+  validation (one-off probe, not in the harness) shows every documented
+  ENSNode instance - `api.v2-sepolia`, `api.sepolia`, `api.alpha-sepolia`,
+  `api.alpha`, `api.mainnet` - returns Railway "Application not found" 404s
+  while ensnode.io/docs still advertises them. Namehash's hosted fleet is
+  down/decommissioned. The harness hard-fails on this by default;
+  `ENSNODE_OPTIONAL=1` skips explicitly. Reliable path: self-host Namehash's
+  ENSIndexer pointed at sepolia-v2 and set `ENSNODE_URL` to the local
+  `/subgraph` endpoint. Record-level parity against ENSNode remains UNVERIFIED
+  (on-chain parity is the active oracle).
 - **Big Name**: hosted endpoint 502 (stopped mid-rewrite per the Aug 7
   analysis); no adapter until it returns.
