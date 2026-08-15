@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { buildClientSchema, getIntrospectionQuery, parse, validate, type DocumentNode } from 'graphql'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const repoRoot = join(here, '..', '..')
+const repoRoot = join(here, '..')
 
 const ours = readFileSync(join(repoRoot, 'schema.graphql'), 'utf8')
 const reference = readFileSync(
