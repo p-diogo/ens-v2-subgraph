@@ -30,7 +30,7 @@ import {
   TransferBatch as SubTransferBatch,
 } from "../generated/templates/Subregistry/UserRegistry";
 import { Subregistry as SubregistryTemplate } from "../generated/templates";
-import { Domain, ExpiryExtended, NewOwner, Transfer } from "../generated/schema";
+import { Domain, ExpiryExtended, NameTransferred, NewOwner, Registration, Transfer } from "../generated/schema";
 import {
   byteArrayFromHex,
   checkValidLabel,
@@ -202,8 +202,28 @@ function transferSingleCore(
   domainEvent.domain = node;
   domainEvent.owner = ownerHex;
   domainEvent.save();
-}
 
+  // v1 NameTransferred came from BaseRegistrar ERC721 transfers; in v2 the
+  // registry token IS the registrar token, so ERC1155 transfers of a 2LD sync
+  // the registrant. (Mints precede the registrar's NameRegistered, so no
+  // NameTransferred entity is emitted at mint - divergence ledger.)
+  let labelHashHex = domain.labelhash ? domain.labelhash!.toHexString() : "";
+  if (labelHashHex != "") {
+    let registration = Registration.load(labelHashHex);
+    if (registration != null) {
+      domain.registrant = ownerHex;
+      domain.save();
+      registration.registrant = ownerHex;
+      registration.save();
+      let transferEvent = new NameTransferred(createEventID(blockNumber, logIndex));
+      transferEvent.registration = labelHashHex;
+      transferEvent.blockNumber = blockNumber.toI32();
+      transferEvent.transactionID = txHash;
+      transferEvent.newOwner = ownerHex;
+      transferEvent.save();
+    }
+  }
+}
 
 function subregistryUpdatedCore(
   registry: Address,
