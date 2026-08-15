@@ -129,3 +129,19 @@ up the initial backfill.
 4. Re-run §1, §4. If event ABIs drifted, re-extract via `forge inspect` from
    the new branch into `abis/{live,rc}/` and adjust handlers first.
 5. Full rehearsal against the new branch's devnet (§3 with `E2E_WORKTREE`).
+
+## 7. Hosted deployment (The Graph Studio) — shareable endpoint
+
+Studio hosts the subgraph 24/7 with its own Sepolia indexing infrastructure
+(no RPC key needed on our side for indexing):
+
+1. Create a subgraph named `ens-v2-subgraph` at thegraph.com/studio.
+2. Copy the deploy key (Subgraph → Settings → Deploy Key) and authenticate:
+   `graph auth <DEPLOY_KEY>`
+3. Deploy: `npm run deploy:studio`
+   (equivalent to `graph deploy ens-v2-subgraph --studio
+   --version-label v0.1.0-sepolia-beta`)
+4. The query endpoint is
+   `https://api.studio.thegraph.com/query/<ACCOUNT_ID>/ens-v2-subgraph/<VERSION>`
+   — share that with the ENS team. RC redeploy = edit networks.json +
+   subgraph.yaml addresses, redeploy with a new version label.

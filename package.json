@@ -10,7 +10,8 @@
     "test": "graph test",
     "test:schema": "tsx harness/schema.test.ts",
     "dev": "bash scripts/dev.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:studio": "graph deploy ens-v2-subgraph --studio --version-label v0.1.0-sepolia-beta"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",
