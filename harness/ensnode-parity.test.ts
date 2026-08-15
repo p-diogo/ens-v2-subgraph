@@ -1,25 +1,30 @@
 // L3 parity: self-hosted ENSNode (Namehash ENSIndexer) as the behavioral
-// oracle. Reads the subgraph-compat entities directly from the ENSIndexer
-// Postgres schema (the ponder app does not expose the composed /subgraph API;
-// its DB is the same data its API serves) and diffs every .eth 2LD against
-// our subgraph: name, labelName, owner, registrant, expiryDate, registration
-// expiry/labelName, isMigrated.
+// oracle, v3 — against the unigraph CORE tables.
 //
-// Only docs/DIVERGENCES.md ledgered differences are suppressed; anything else
-// fails. An unreachable oracle fails the run unless ENSNODE_OPTIONAL=1.
+// Key discovery from v1/v2 of this harness: ENSIndexer's `subgraph` plugin
+// never materializes ENSv2 names (their hosted v2-sepolia /subgraph API is
+// composed at the API layer from these core tables by the separate ensapi
+// app, which we don't run). The oracle surface for v2 is:
+//   domains        (node = ENSIP-1 namehash, canonical_name, owner_id, label_hash)
+//   registrations  (start, expiry, grace_period, registrant_id, registrar_address)
+//   labels         (label_hash -> interpreted)
 //
-// Env:
-//   GND_GRAPHQL  our subgraph (default :8000)
-//   ENSDB_URL    ENSIndexer's Postgres (default localhost:5434)
-//   ENSINDEXER_SCHEMA_NAME  (default ensindexer_parity)
+// Compares every .eth 2LD of ours (registrar-scoped, beta deployment) against
+// the oracle: name, labelName, owner, registrant, registrationDate,
+// Registration.expiryDate. Suppressed (divergence ledger):
+//   - Domain.expiryDate: we apply v1's +90d grace constant; the oracle leaves
+//     grace_period NULL for v2 registrations.
+//   - isMigrated: no oracle equivalent (our migration-controller semantics).
+//
+// Env: GND_GRAPHQL (default :8000). Oracle read via docker psql.
+// Unreachable oracle fails the run unless ENSNODE_OPTIONAL=1.
 
 import { execFileSync } from 'node:child_process'
 
 const GND = process.env.GND_GRAPHQL ?? 'http://localhost:8000/subgraphs/name/subgraph-0'
-const DB_URL = process.env.ENSDB_URL ?? 'postgresql://postgres:password@localhost:5434/postgres'
-const SCHEMA = process.env.ENSINDEXER_SCHEMA_NAME ?? 'ensindexer_parity'
 
 const ETH_NODE = '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae'
+const BETA_REGISTRAR = '0x8c2e866b439358c41ae05de9cbe8a00bfefaffca'
 
 let failures: string[] = []
 function check(name: string, ok: boolean, detail?: string) {
@@ -41,25 +46,22 @@ async function gql<T = any>(query: string): Promise<T> {
   return body.data as T
 }
 
-function psql(sql: string): any[] {
+function psql(sql: string): string[][] {
   const out = execFileSync(
     'docker',
     ['exec', 'ensindexer-pg', 'psql', '-U', 'postgres', '-d', 'postgres', '-At', '-c', sql],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   ).trim()
   if (!out) return []
   return out.split('\n').map((line) => line.split('|'))
 }
 
 async function main() {
-  console.log('L3 ENSNode parity (self-hosted ENSIndexer, Postgres oracle)\n')
+  console.log('L3 ENSNode parity (self-hosted ENSIndexer, unigraph core tables)\n')
 
-  // oracle reachability + sync state
-  let head: string[][]
+  // oracle reachability
   try {
-    head = psql(
-      `SELECT chain_id || ':' || latest_checkpoint FROM ${SCHEMA}._ponder_checkpoint`,
-    )
+    psql('SELECT 1 FROM ensindexer_parity._ponder_checkpoint LIMIT 1')
   } catch (e) {
     const msg = `oracle unreachable: ${String(e).slice(0, 120)}`
     if (process.env.ENSNODE_OPTIONAL === '1') {
@@ -69,68 +71,67 @@ async function main() {
     console.error(`  ✖ ${msg}`)
     process.exit(1)
   }
-  console.log(`  (oracle subgraph_domains cursor: ${head[0]?.[0] ?? 'n/a'})`)
 
   const ours = await gql(`{
     domains(first: 100, where: { parent: "${ETH_NODE}" }) {
-      id name labelName owner { id } registrant { id } expiryDate isMigrated
-      registration { expiryDate labelName }
+      id name labelhash labelName owner { id } registrant { id }
+      registration { registrationDate expiryDate labelName }
     }
   }`)
   const oursList: any[] = ours.domains ?? []
   console.log(`  (our .eth 2LDs: ${oursList.length})`)
 
-  const ids = oursList.map((d) => "'" + d.id.toLowerCase() + "'").join(',')
-  const rows = ids.length
-    ? psql(
-        `SELECT d.id, coalesce(d.name,''), coalesce(d.label_name,''), coalesce(d.owner_id,''), ` +
-          `coalesce(d.registrant_id,''), coalesce(d.expiry_date::text,''), d.is_migrated::text, ` +
-          `coalesce(r.expiry_date::text,''), coalesce(r.label_name,'') ` +
-          `FROM ${SCHEMA}.subgraph_domains d ` +
-          `LEFT JOIN ${SCHEMA}.subgraph_registrations r ON r.domain_id = d.id ` +
-          `WHERE lower(d.id) IN (${ids})`,
-      )
-    : []
+  const ids = oursList.map((d) => "'" + d.labelhash.toLowerCase() + "'").join(',')
+  const rows = psql(
+    `SELECT d.label_hash, coalesce(d.canonical_name,''), coalesce(d.owner_id,''), ` +
+      `coalesce(l.interpreted,''), r.start::text, r.expiry::text, ` +
+      `coalesce(r.grace_period::text,''), coalesce(r.registrant_id,'') ` +
+      `FROM ensindexer_parity.domains d ` +
+      `LEFT JOIN ensindexer_parity.labels l ON l.label_hash = d.label_hash ` +
+      `LEFT JOIN LATERAL (` +
+      `  SELECT start, expiry, grace_period, registrant_id ` +
+      `  FROM ensindexer_parity.registrations r2 ` +
+      `  WHERE r2.domain_id = d.id AND r2.registrar_address = '${BETA_REGISTRAR}' ` +
+      `  ORDER BY r2.registration_index DESC LIMIT 1) r ON true ` +
+      `WHERE lower(d.label_hash) IN (${ids}) AND d.registry_id = '11155111-0xdedb92913a25abe1f7bcdd85d8a344a43b398b67'`,
+  )
   const theirs = new Map(rows.map((r) => [r[0].toLowerCase(), r]))
+  console.log(`  (oracle rows matched by labelhash: ${rows.length})`)
 
-  let matched = 0
   for (const d of oursList) {
-    const t = theirs.get(d.id)
+    const t = theirs.get((d.labelhash ?? '').toLowerCase())
     if (!t) {
-      check(`${d.name ?? d.id} present in oracle`, false, '(row not found)')
+      check(`${d.name ?? d.id} present in oracle`, false, '(no row)')
       continue
     }
     const diffs: string[] = []
     if (t[1] !== d.name) diffs.push(`name '${t[1]}' != '${d.name}'`)
-    if (t[2] !== (d.labelName ?? '')) diffs.push(`labelName '${t[2]}' != '${d.labelName ?? ''}'`)
-    if (t[3].toLowerCase() !== (d.owner?.id ?? '').toLowerCase()) diffs.push(`owner ${t[3]} != ${d.owner?.id}`)
-    if ((t[4] || '').toLowerCase() !== (d.registrant?.id ?? '').toLowerCase()) diffs.push(`registrant ${t[4]} != ${d.registrant?.id}`)
-    if (t[5] !== (d.expiryDate ?? '')) diffs.push(`domain.expiryDate ${t[5]} != ${d.expiryDate ?? ''}`)
-    if (t[6] !== String(d.isMigrated)) diffs.push(`isMigrated ${t[6]} != ${d.isMigrated}`)
-    if (d.registration && t[7] !== d.registration.expiryDate) diffs.push(`reg.expiryDate ${t[7]} != ${d.registration.expiryDate}`)
-    if (d.registration && t[8] !== (d.registration.labelName ?? '')) diffs.push(`reg.labelName '${t[8]}' != '${d.registration.labelName ?? ''}'`)
-    if (!d.registration && t[7] !== '') diffs.push('oracle has registration, we do not')
-
-    if (diffs.length > 0) {
-      check(`${d.name ?? d.id}`, false, diffs.join('; '))
-    } else {
-      check(`${d.name ?? d.id} matches oracle`, true)
-      matched++
+    if (t[2].toLowerCase() !== (d.owner?.id ?? '').toLowerCase()) diffs.push(`owner ${t[2]} != ${d.owner?.id}`)
+    if (t[3] !== (d.labelName ?? '')) diffs.push(`labelName '${t[3]}' != '${d.labelName ?? ''}'`)
+    if (d.registration) {
+      if (t[4] !== d.registration.registrationDate) diffs.push(`reg.start ${t[4]} != ${d.registration.registrationDate}`)
+      if (t[5] !== d.registration.expiryDate) diffs.push(`reg.expiry ${t[5]} != ${d.registration.expiryDate}`)
+      if (t[7].toLowerCase() !== (d.registrant?.id ?? '').toLowerCase()) diffs.push(`registrant ${t[7]} != ${d.registrant?.id}`)
+    } else if (t[4]) {
+      diffs.push('oracle has registrar registration, we do not')
     }
+    if (diffs.length > 0) check(`${d.name ?? d.id}`, false, diffs.join('; '))
+    else check(`${d.name ?? d.id} matches oracle (name/label/owner/registrant/dates)`, true)
   }
 
-  // reverse direction: oracle .eth 2LDs we lack
-  const oracleCount = psql(
-    `SELECT count(*) FROM ${SCHEMA}.subgraph_domains WHERE parent_id='${ETH_NODE}'`,
-  )[0][0]
-  console.log(`  (oracle .eth 2LDs: ${oracleCount}; matched: ${matched})`)
-  const oursIds = new Set(oursList.map((d) => d.id.toLowerCase()))
-  const extra = psql(
-    `SELECT coalesce(name, id) FROM ${SCHEMA}.subgraph_domains WHERE parent_id='${ETH_NODE}' ` +
-      `AND lower(id) NOT IN (${[...oursIds].map((i) => "'" + i + "'").join(',') || "''"})`,
+  // reverse: oracle beta-registrar 2LDs we lack
+  const oracleNames = new Set(
+    psql(
+      `SELECT coalesce(d.canonical_name,'') FROM ensindexer_parity.registrations r ` +
+        `JOIN ensindexer_parity.domains d ON d.id = r.domain_id ` +
+        `WHERE r.registrar_address = '${BETA_REGISTRAR}'`,
+    ).map((r) => r[0]),
   )
-  for (const [name] of extra) {
-    console.log(`  ℹ︎ oracle-only domain (v1-era, out of our v2-only scope): ${name}`)
+  const oursNames = new Set(oursList.map((d) => d.name))
+  const extra = [...oracleNames].filter((n) => n && n.endsWith('.eth') && !oursNames.has(n))
+  console.log(`  (oracle beta-registrar registrations: ${oracleNames.size}; ours: ${oursList.size})`)
+  for (const n of extra.slice(0, 12)) {
+    console.log(`  ℹ︎ oracle-only .eth 2LD (pre-beta June window, out of our scope): ${n}`)
   }
 
   if (failures.length > 0) {
@@ -140,5 +141,4 @@ async function main() {
   console.log('\nall green')
 }
 
-void DB_URL
 await main()

@@ -101,7 +101,7 @@ re-pin + test re-run (runbook in README).
 | L1 unit | 17 matchstick tests, red→green per handler | green |
 | L2 e2e | contracts-v2 devnet (`--testNames`) → gnd → 30+ assertions | green on live branch AND pr354 branch |
 | L3 on-chain | `findExpiry(label)` vs Registration/Domain expiry, every 2LD | 10/10 green on the live beta |
-| L3 ENSNode | self-hosted ENSIndexer (sepolia-v2, SUBGRAPH_COMPAT) record-level diff | see §6 |
+| L3 ENSNode | self-hosted ENSIndexer (sepolia-v2, alpha-style) record-level diff | **all 10 names match field-by-field** (2026-08-15) |
 
 ## 5. Key decisions (and their one-line rationales)
 

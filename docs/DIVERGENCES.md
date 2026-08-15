@@ -40,16 +40,22 @@ entities) or covered by an entry below. The parity harness
   truth. Compares `findExpiry(label)` (raw-returning, not expiry-masked)
   against `Registration.expiryDate` and `Domain.expiryDate` for every 2LD.
   2026-08-15: 10/10 names green on the live beta deployment.
-- **ENSNode oracle** (`harness/ensnode-parity.test.ts`): as of 2026-08-15 the
-  oracle is unreachable and this is NOT just TLS: bypassing certificate
-  validation (one-off probe, not in the harness) shows every documented
-  ENSNode instance - `api.v2-sepolia`, `api.sepolia`, `api.alpha-sepolia`,
-  `api.alpha`, `api.mainnet` - returns Railway "Application not found" 404s
-  while ensnode.io/docs still advertises them. Namehash's hosted fleet is
-  down/decommissioned. The harness hard-fails on this by default;
-  `ENSNODE_OPTIONAL=1` skips explicitly. Reliable path: self-host Namehash's
-  ENSIndexer pointed at sepolia-v2 and set `ENSNODE_URL` to the local
-  `/subgraph` endpoint. Record-level parity against ENSNode remains UNVERIFIED
-  (on-chain parity is the active oracle).
+- **ENSNode oracle** (`harness/ensnode-parity.test.ts`): hosted fleet fully
+  down as of 2026-08-15 (all five documented instances return Railway
+  "Application not found" 404s behind broken TLS while ensnode.io/docs still
+  advertises them). Self-hosting Namehash's ENSIndexer (from the archived
+  namehash/ensnode monorepo) as the oracle: **record-level parity VERIFIED
+  2026-08-15 — all 10 beta .eth 2LDs match field-by-field** (name, labelName,
+  owner, registrant, registrationDate, Registration.expiryDate) against the
+  unigraph core tables (`domains`/`registrations`/`labels`). Notes from
+  standing it up: the subgraph plugin never materializes ENSv2 names (their
+  hosted /subgraph API composes from core tables in the separate ensapi app);
+  v2 comparison joins on `label_hash` (their v2 domains carry no ENSIP-1
+  node). Two upstream bugs found: their ExpiryUpdated handler crashes
+  deterministically on expired-then-renewed names (patched locally, ref patch
+  #3), and unigraph's hard dependency on protocol-acceleration pulls in
+  Base/Linea/LUKSO chains for a sepolia-only parity run (patched locally,
+  ref patch #4). Their grace_period is NULL for v2 registrations — our
+  v1-style +90d Domain.expiryDate stays ledgered as a divergence.
 - **Big Name**: hosted endpoint 502 (stopped mid-rewrite per the Aug 7
   analysis); no adapter until it returns.

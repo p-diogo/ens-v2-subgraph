@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
   if (url.startsWith('/v1/config')) {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({
-      serverLabelSet: { labelSetId: 'subgraph', highestLabelSetVersion: 5 },
+      serverLabelSet: { labelSetId: 'searchlight', highestLabelSetVersion: 1 },
       versionInfo: { ensRainbow: '2.0.0' },
     }))
     return
