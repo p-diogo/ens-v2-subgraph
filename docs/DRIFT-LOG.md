@@ -31,3 +31,12 @@ either "no drift" one-liners, detailed drift analyses, or ACTION-NEEDED items
 - ENSNode hosted fleet: still down (TLS mismatch persists).
 
 Verdict: no drift.
+
+## 2026-08-15T11:01Z (run 2)
+
+- No movement since run 1: live/post-audit-2 SAME; feat/public-resolver still
+  at 52beb14 (already classified informational in run 1). No new relevant
+  branches. 17 open PRs, none updated since run 1. Gist last active
+  2026-08-13 12:49 (unchanged). ENSNode fleet still down (TLS mismatch).
+
+Verdict: no drift.
