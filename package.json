@@ -8,7 +8,7 @@
     "codegen": "graph codegen",
     "build": "graph build",
     "test": "graph test",
-    "test:schema": "tsx tests/schema/schema.test.ts",
+    "test:schema": "tsx harness/schema.test.ts",
     "dev": "bash scripts/dev.sh",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +16,7 @@
     "@graphprotocol/graph-cli": "^0.98.1",
     "@graphprotocol/graph-ts": "^0.38.2",
     "graphql": "^16.14.2",
+    "matchstick-as": "^0.6.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

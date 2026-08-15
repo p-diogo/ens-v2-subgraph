@@ -449,3 +449,23 @@ type VersionChanged implements ResolverEvent @entity(immutable: true) {
   "The new version number of the resolver"
   version: BigInt!
 }
+
+
+# ── internal entities (appended by ens-v2-subgraph, NOT part of the v1 consumer contract) ──
+# These power namehash anchoring across ENSv2's hierarchical registries and
+# tokenId remapping across regenerations. They are purely additive to the v1
+# schema; no v1 consumer query touches them. The schema test asserts that
+# schema.graphql is the v1 schema verbatim followed by exactly this block.
+
+# registry contract address -> parent name/node anchor for namehash derivation
+type _RegistryAnchor @entity(immutable: false) {
+  id: Bytes! # registry contract address
+  parentName: String! # "" for root-level registries
+  parentNode: Bytes! # namehash of parentName
+}
+
+# (registry address, tokenId) -> domain node; survives TokenRegenerated moves
+type _TokenId @entity(immutable: false) {
+  id: String! # "<registryAddress>-<tokenId>"
+  node: String! # domain node (namehash)
+}

@@ -66,14 +66,43 @@ async function introspectServed(): Promise<ReturnType<typeof buildClientSchema> 
   }
 }
 
+// The ONLY permitted deviation from the v1 schema: this exact block appended
+// at the end (internal entities for registry anchoring / tokenId mapping).
+// Purely additive — no v1 consumer query can see it.
+const INTERNAL_BLOCK = `
+
+# ── internal entities (appended by ens-v2-subgraph, NOT part of the v1 consumer contract) ──
+# These power namehash anchoring across ENSv2's hierarchical registries and
+# tokenId remapping across regenerations. They are purely additive to the v1
+# schema; no v1 consumer query touches them. The schema test asserts that
+# schema.graphql is the v1 schema verbatim followed by exactly this block.
+
+# registry contract address -> parent name/node anchor for namehash derivation
+type _RegistryAnchor @entity(immutable: false) {
+  id: Bytes! # registry contract address
+  parentName: String! # "" for root-level registries
+  parentNode: Bytes! # namehash of parentName
+}
+
+# (registry address, tokenId) -> domain node; survives TokenRegenerated moves
+type _TokenId @entity(immutable: false) {
+  id: String! # "<registryAddress>-<tokenId>"
+  node: String! # domain node (namehash)
+}
+`
+
 async function main() {
   console.log('L0 schema contract tests\n')
 
-  // --- A. byte-identical schema ---------------------------------------------
+  // --- A. schema = v1 verbatim + internal block -------------------------------
   check(
-    'schema.graphql is byte-identical to ens-subgraph master',
-    ours === reference,
-    ours === reference ? undefined : diffSummary(ours.split('\n'), reference.split('\n')),
+    'schema.graphql is v1 verbatim + exactly the internal block',
+    ours === reference + INTERNAL_BLOCK,
+    ours === reference + INTERNAL_BLOCK
+      ? undefined
+      : ours.startsWith(reference)
+        ? '    v1 prefix ok, but the appended block differs from the whitelisted INTERNAL_BLOCK'
+        : diffSummary(ours.split('\n'), reference.split('\n')),
   )
 
   // --- B. corpus validates against the served schema -------------------------
