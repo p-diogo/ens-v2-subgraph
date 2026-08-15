@@ -1,0 +1,109 @@
+# ens-v2-subgraph
+
+An ENSv2 subgraph for the Sepolia public beta (deployed 2026-08-11) that
+speaks the **v1 ENS subgraph schema byte-for-byte**: every ensjs/GraphQL-shaped
+consumer keeps working against ENSv2 data by pointing at this subgraph.
+
+- Schema: `ensdomains/ens-subgraph` `schema.graphql` verbatim + an invisible
+  `_`-prefixed internal block (graph-node does not expose underscore entities).
+  Enforced by `harness/schema.test.ts`.
+- Mappings: pure event-sourcing, zero `eth_call`s — deterministic, reorg-safe,
+  no archive-RPC dependency (rationale: Decision #6 in `docs/PLAN.md`).
+- Both resolver generations indexed side by side: today's live
+  `PermissionedResolver` events AND the RC `SharedResolver` model
+  (PR #354, branch `feat/public-resolver`) — proven against both devnets with
+  the same wasm.
+
+## Quick start
+
+```bash
+bun --version 2>/dev/null || npm i -g bun   # for the contracts devnet
+npm install
+
+# local dev against live Sepolia (plain RPC is enough)
+bash scripts/dev.sh            # builds + runs gnd on :8000
+# -> http://localhost:8000/subgraphs/name/subgraph-0
+
+# unit tests (matchstick)
+npm run test                   # = graph test
+
+# schema contract tests (needs gnd from dev.sh running)
+npm run test:schema
+
+# L2 e2e on a local anvil devnet with real ENSv2 contracts
+bash scripts/e2e-chain.sh up   # devnet :8545 + gnd :8001 (needs :8000 free)
+bash scripts/e2e-chain.sh test
+bash scripts/e2e-chain.sh down
+
+# L3 parity
+GND_GRAPHQL=http://localhost:8000/subgraphs/name/subgraph-0 \
+  npx tsx harness/onchain-parity.test.ts          # on-chain ground truth
+GND_GRAPHQL=... npx tsx harness/ensnode-parity.test.ts  # ENSNode oracle
+```
+
+## Repository map
+
+```
+subgraph.yaml          hardcoded to the official beta deployment (sepolia)
+networks.json          pinned addresses/startBlocks (source of truth; RC swap = edit here)
+schema.graphql         v1 schema verbatim + internal block (see harness/schema.test.ts)
+abis/live/             from contracts-v2 @ deploy/sepolia-migration-20260731
+abis/rc/               from contracts-v2 @ feat/public-resolver (PR #354)
+src/registry.ts        registry events -> Domain tree (v1 ensRegistry.ts semantics)
+src/registrar.ts       ETHRegistrar events -> Registration (+90d grace, v1 constant)
+src/resolverLive.ts    live PermissionedResolver record events -> Resolver
+src/resolverRC.ts      RC SharedResolver recordId-keyed events -> Resolver
+src/factory.ts         VerifiableFactory ProxyDeployed -> template pre-spawn
+src/internals.ts       _RegistryAnchor / _TokenId / root+eth seeding
+tests/*.test.ts        matchstick unit tests (red-green per handler)
+harness/               node-side test suites (schema, e2e, parity)
+scripts/               dev.sh, e2e-chain.sh, gen-devnet-networks.py
+docs/PLAN.md           the approved plan (context, decisions, timeline)
+docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
+.reference/            ens-subgraph + contracts-v2 clones (gitignored)
+```
+
+## The RC-swap runbook (when ENS redeploys Sepolia)
+
+1. Update `networks.json` `sepolia` addresses/startBlocks from the new
+   deployment (Etherscan first-tx or the contracts repo's addresses doc).
+2. `npx graph build` — addresses in `subgraph.yaml` must match networks.json
+   (they are hardcoded; graph-cli 0.98's `--network` write-back makes
+   mustache templates unusable).
+3. If event ABIs drifted: re-extract with `forge inspect` from the new branch
+   into `abis/live|rc/`, adjust the affected handler, `npm run test`.
+4. Re-run the pyramid: unit -> `scripts/dev.sh` + `npm run test:schema` ->
+   on-chain parity. Resolver generation flips automatically (both templates
+   are already deployed by `ResolverUpdated`/`ProxyDeployed`).
+5. Full dress rehearsal: `E2E_WORKTREE=<contracts checkout at the new branch>
+   bash scripts/e2e-chain.sh up && bash scripts/e2e-chain.sh test`.
+
+## Findings worth knowing (all verified on-chain)
+
+- The beta deployment went live 2026-08-11 (ETHRegistry first log block
+  11465484); the 10 initial names are ENS-internal setup registrations
+  (senders are system addresses), registered via the registrar with
+  MockUSDC pricing.
+- The 3 observed `ResolverUpdated` events reference internal deployment
+  tokens — no beta user name had a resolver as of 2026-08-15.
+- The beta's resolvers were NOT deployed through VerifiableFactory (zero
+  factory logs since the beta batch) — lazy template spawning from
+  `ResolverUpdated` is the primary discovery path.
+- ENSv2 2LDs cannot be unregistered; the fixture "unregistered" flow targets
+  subnames. `sub.test.eth`-style names can exist as resolver-level aliases
+  only (no Domain).
+- contracts-v2's own `testNames` reregister flow assumed expired==available;
+  the 90-day .eth grace period breaks that (patched in `.reference`, and a
+  warning the official docs themselves make).
+- graph-cli 0.98 toolchain quirks, all worked around and documented in code:
+  AS compiler crash on null-equality with nullable `Bytes/ByteArray`
+  (use truthiness), matchstick 0.6 mangling uint256-scale mock params, and
+  the `--network` build writing templates back into the source manifest.
+
+## Status
+
+Milestones M0–M7 of `docs/PLAN.md` are complete: schema contract enforced,
+all handlers unit-tested, live-Sepolia indexing verified with on-chain
+parity, and both the live and RC contract generations proven on real local
+devnets. Next milestone (separate session): the graph-client/Cloudflare-Worker
+proxy composing v1+v2 subgraphs into one virtual interface.
