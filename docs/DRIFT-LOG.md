@@ -50,3 +50,12 @@ Verdict: no drift.
   still down (TLS mismatch).
 
 Verdict: no drift.
+
+## 2026-08-15T20:01Z (run 4)
+
+- No movement: live be6cf89 / post-audit-2 80f6d90 / feat/public-resolver
+  52beb14 (all previously classified) / main 48b3e2d3 unchanged. No new
+  relevant branches. 17 open PRs, none updated. Gist unchanged
+  (2026-08-13 12:49). ENSNode fleet still down (TLS mismatch).
+
+Verdict: no drift.
