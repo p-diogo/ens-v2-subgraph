@@ -60,3 +60,15 @@ Verdict: no drift.
   (2026-08-13 12:49). ENSNode fleet still down (TLS mismatch).
 
 Verdict: no drift.
+
+## 2026-08-15T23:01Z (run 5)
+
+- No movement: live be6cf89 / post-audit-2 80f6d90 / feat/public-resolver
+  52beb14 (classified) / main 48b3e2d3. No new relevant branches (the devin/*
+  and feat/* resolver branches in the filter are all pre-existing). 17 open
+  PRs, none updated. Gist unchanged (2026-08-13 12:49). ENSNode fleet still
+  down. Repo now public on GitHub (history rewritten to drop 44MB of
+  accidentally-committed .gnd-data postgres files; upstream SHAs in this log
+  unaffected).
+
+Verdict: no drift.
