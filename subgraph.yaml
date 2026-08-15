@@ -11,8 +11,8 @@ dataSources:
     network: sepolia
     source:
       abi: PermissionedRegistry
-      address: "{{ETHRegistry.address}}"
-      startBlock: {{ETHRegistry.startBlock}}
+      address: "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67"
+      startBlock: 11465480
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -60,8 +60,8 @@ dataSources:
     network: sepolia
     source:
       abi: PermissionedRegistry
-      address: "{{RootRegistry.address}}"
-      startBlock: {{RootRegistry.startBlock}}
+      address: "0xc960F7217d3643B525Ef36Bec8Adf86953CD9aB8"
+      startBlock: 11465480
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -87,8 +87,8 @@ dataSources:
     network: sepolia
     source:
       abi: ETHRegistrar
-      address: "{{ETHRegistrar.address}}"
-      startBlock: {{ETHRegistrar.startBlock}}
+      address: "0x8c2E866B439358c41AE05De9cbE8A00BFEFafFcA"
+      startBlock: 11479218
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -114,8 +114,8 @@ dataSources:
     network: sepolia
     source:
       abi: VerifiableFactory
-      address: "{{VerifiableFactory.address}}"
-      startBlock: {{VerifiableFactory.startBlock}}
+      address: "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198"
+      startBlock: 11465480
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -204,3 +204,35 @@ templates:
         - event: VersionChanged(indexed bytes32,uint64)
           handler: handleVersionChanged
       file: ./src/resolverLive.ts
+  - kind: ethereum
+    name: ResolverRC
+    network: sepolia
+    source:
+      abi: SharedResolver
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.8
+      language: wasm/assemblyscript
+      entities:
+        - Resolver
+        - Domain
+        - Account
+      abis:
+        - name: SharedResolver
+          file: ./abis/rc/SharedResolver.json
+      eventHandlers:
+        - event: AddressUpdated(indexed uint256,uint256,bytes)
+          handler: handleRCAddressUpdated
+        - event: TextUpdated(indexed uint256,indexed string,string,string)
+          handler: handleRCTextUpdated
+        - event: ContenthashUpdated(indexed uint256,bytes)
+          handler: handleRCContenthashUpdated
+        - event: ABIUpdated(indexed uint256,indexed uint256)
+          handler: handleRCABIUpdated
+        - event: InterfaceUpdated(indexed uint256,indexed bytes4,address)
+          handler: handleRCInterfaceUpdated
+        - event: NameUpdated(indexed uint256,string)
+          handler: handleRCNameUpdated
+        - event: Cleared(indexed uint256)
+          handler: handleRCCleared
+      file: ./src/resolverRC.ts

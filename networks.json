@@ -31,7 +31,7 @@
     }
   },
   "devnet": {
-    "_comment": "auto-generated from devnet-31337 by scripts/gen-devnet-networks.py",
+    "_comment": "auto-generated from devnet-31337 (.reference/contracts-v2-pr354)",
     "RootRegistry": {
       "address": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
       "startBlock": 0
@@ -41,7 +41,7 @@
       "startBlock": 0
     },
     "ETHRegistrar": {
-      "address": "0x36b58f5c1969b7b6591d752ea6f5486d069010ab",
+      "address": "0x51a1ceb83b83f1985a81c295d1ff28afef186e02",
       "startBlock": 0
     },
     "VerifiableFactory": {
@@ -53,11 +53,11 @@
       "startBlock": 0
     },
     "LockedMigrationController": {
-      "address": "0xfbc22278a96299d91d41c453234d97b4f5eb9b2d",
+      "address": "0x2b0d36facd61b71cc05ab8f3d2355ec3631c0dd5",
       "startBlock": 0
     },
     "UnlockedMigrationController": {
-      "address": "0xdc11f7e700a4c898ae5caddb1082cffa76512add",
+      "address": "0xd8a5a9b31c3c0232e196d518e89fd8bf83acad43",
       "startBlock": 0
     }
   }

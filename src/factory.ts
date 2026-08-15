@@ -14,10 +14,12 @@
 import { ProxyDeployed } from "../generated/VerifiableFactory/VerifiableFactory";
 import {
   ResolverLive as ResolverLiveTemplate,
+  ResolverRC as ResolverRCTemplate,
   Subregistry as SubregistryTemplate,
 } from "../generated/templates";
 
 export function handleProxyDeployed(event: ProxyDeployed): void {
   ResolverLiveTemplate.create(event.params.proxyAddress);
+  ResolverRCTemplate.create(event.params.proxyAddress);
   SubregistryTemplate.create(event.params.proxyAddress);
 }

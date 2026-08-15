@@ -29,7 +29,11 @@ import {
   TransferSingle as SubTransferSingle,
   TransferBatch as SubTransferBatch,
 } from "../generated/templates/Subregistry/UserRegistry";
-import { ResolverLive as ResolverLiveTemplate, Subregistry as SubregistryTemplate } from "../generated/templates";
+import {
+  ResolverLive as ResolverLiveTemplate,
+  ResolverRC as ResolverRCTemplate,
+  Subregistry as SubregistryTemplate,
+} from "../generated/templates";
 import { Domain, ExpiryExtended, NameTransferred, NewOwner, NewResolver, Registration, Resolver, Transfer } from "../generated/schema";
 import {
   byteArrayFromHex,
@@ -256,7 +260,10 @@ function resolverUpdatedCore(
       resolver.domain = node;
       resolver.address = resolverAddr;
       resolver.save();
+      // both resolver generations are spawned: only one emits on a given
+      // contract, so the RC lands with no code change here
       ResolverLiveTemplate.create(resolverAddr);
+      ResolverRCTemplate.create(resolverAddr);
     }
   }
 
