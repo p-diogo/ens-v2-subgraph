@@ -1,0 +1,267 @@
+# v1 consumer query corpus. Every query here MUST validate against our
+# schema.graphql (byte-identical to ensdomains/ens-subgraph master).
+# Sources: ens-subgraph README example queries, docs.ens.domains/web/subgraph
+# usage patterns, ensjs subgraph-client query shapes.
+
+# --- query: readme-example (from ens-subgraph README, fields fixed for the
+# current master schema: the README's own example is stale - it selects
+# ResolverEvent.node, AddrChanged.a and TextChanged.indexedKey which no longer
+# exist in schema.graphql)
+{
+  domains {
+    id
+    labelName
+    labelhash
+    parent {
+      id
+    }
+    subdomains {
+      id
+    }
+    owner {
+      id
+    }
+    resolver {
+      id
+    }
+    ttl
+  }
+  resolvers {
+    id
+    address
+    domain {
+      id
+    }
+    events {
+      id
+      ... on AddrChanged {
+        addr {
+          id
+        }
+      }
+      ... on NameChanged {
+        name
+      }
+      ... on AbiChanged {
+        contentType
+      }
+      ... on PubkeyChanged {
+        x
+        y
+      }
+      ... on TextChanged {
+        key
+        value
+      }
+      ... on ContenthashChanged {
+        hash
+      }
+      ... on InterfaceChanged {
+        interfaceID
+        implementer
+      }
+      ... on AuthorisationChanged {
+        owner
+        target
+        isAuthorized
+      }
+    }
+  }
+  registrations(where: { labelName_not: null }, orderBy: expiryDate, orderDirection: asc, first: 10, skip: 0) {
+    expiryDate
+    labelName
+    domain {
+      name
+      labelName
+    }
+  }
+}
+
+# --- query: domain-by-namehash (the canonical ensjs lookup pattern)
+query DomainByNamehash($id: ID!) {
+  domain(id: $id) {
+    id
+    name
+    labelName
+    labelhash
+    createdAt
+    isMigrated
+    owner {
+      id
+    }
+    registrant {
+      id
+    }
+    wrappedOwner {
+      id
+    }
+    resolver {
+      id
+      address
+      addr {
+        id
+      }
+      contentHash
+      texts
+      coinTypes
+    }
+    ttl
+    expiryDate
+    subdomainCount
+    parent {
+      id
+      name
+    }
+    subdomains(first: 10) {
+      id
+      labelName
+    }
+    registration {
+      id
+      registrationDate
+      expiryDate
+      cost
+      registrant {
+        id
+      }
+      labelName
+      events(first: 10) {
+        id
+        blockNumber
+        transactionID
+        ... on NameRegistered {
+          registrant {
+            id
+          }
+          expiryDate
+        }
+        ... on NameRenewed {
+          expiryDate
+        }
+        ... on NameTransferred {
+          newOwner {
+            id
+          }
+        }
+      }
+    }
+    wrappedDomain {
+      id
+      name
+      fuses
+      expiryDate
+      owner {
+        id
+      }
+    }
+    events(first: 10) {
+      id
+      blockNumber
+      transactionID
+      ... on Transfer {
+        owner {
+          id
+        }
+      }
+      ... on NewOwner {
+        owner {
+          id
+        }
+      }
+      ... on NewResolver {
+        resolver {
+          id
+        }
+      }
+      ... on NameWrapped {
+        name
+        fuses
+        expiryDate
+      }
+      ... on FusesSet {
+        fuses
+      }
+      ... on ExpiryExtended {
+        expiryDate
+      }
+    }
+  }
+}
+
+# --- query: domains-by-owner (app portfolio pattern)
+query DomainsByOwner($owner: String!, $first: Int!) {
+  domains(
+    where: { owner: $owner, labelName_not: null }
+    first: $first
+    orderBy: createdAt
+    orderDirection: desc
+  ) {
+    id
+    name
+    labelName
+    expiryDate
+    parent {
+      name
+    }
+    resolver {
+      addr {
+        id
+      }
+    }
+  }
+}
+
+# --- query: registrations-expiring (renewal-reminder pattern)
+query ExpiringRegistrations($cutoff: BigInt!) {
+  registrations(
+    where: { expiryDate_lt: $cutoff }
+    orderBy: expiryDate
+    orderDirection: asc
+    first: 100
+  ) {
+    id
+    labelName
+    expiryDate
+    registrant {
+      id
+    }
+    domain {
+      name
+    }
+  }
+}
+
+# --- query: account-with-derived (ensjs profile pattern)
+query Account($id: ID!) {
+  account(id: $id) {
+    id
+    domains(first: 100) {
+      id
+      name
+      labelName
+    }
+    registrations(first: 100) {
+      id
+      expiryDate
+      labelName
+    }
+    wrappedDomains(first: 100) {
+      id
+      name
+      expiryDate
+    }
+  }
+}
+
+# --- query: meta (deployment monitoring pattern)
+{
+  _meta {
+    deployment
+    hasIndexingErrors
+    block {
+      number
+      hash
+      timestamp
+    }
+  }
+}

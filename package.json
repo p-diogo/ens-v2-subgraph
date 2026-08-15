@@ -2,6 +2,7 @@
   "name": "ens-v2-subgraph",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "ENSv2 (Sepolia beta) subgraph exposing the v1 ENS subgraph schema byte-for-byte",
   "scripts": {
     "codegen": "graph codegen",
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",
     "@graphprotocol/graph-ts": "^0.38.2",
+    "graphql": "^16.14.2",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }
