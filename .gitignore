@@ -1,0 +1,7 @@
+node_modules/
+build/
+generated/
+.reference/
+tests/parity/snapshots/
+.env
+*.log

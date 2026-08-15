@@ -1,0 +1,20 @@
+{
+  "name": "ens-v2-subgraph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ENSv2 (Sepolia beta) subgraph exposing the v1 ENS subgraph schema byte-for-byte",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "test": "graph test",
+    "test:schema": "tsx tests/schema/schema.test.ts",
+    "dev": "bash scripts/dev.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.98.1",
+    "@graphprotocol/graph-ts": "^0.38.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

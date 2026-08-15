@@ -1,0 +1,54 @@
+{
+  "$comment": [
+    "Official ENSv2 Sepolia public-beta deployment (announced 2026-08-12).",
+    "Addresses: official docs deployments table (e115ad60.docs-bao.pages.dev/ensv2/overview#deployments-sepolia),",
+    "RootRegistry discovered on-chain via ETHRegistry.getParent().",
+    "Start blocks pinned empirically by first eth_getLogs hit per contract (2026-08-14);",
+    "all addresses verified live via eth_getCode; ETHRegistry event topics verified against",
+    "contracts-v2 branch deploy/sepolia-migration-20260731 (bytecode differs slightly - newer",
+    "revision deployed 2026-08-11 - but the event surface matches every observed topic).",
+    "RC swap: when the next RC redeploy lands, update addresses/startBlocks here and re-run tests."
+  ],
+  "sepolia": {
+    "RootRegistry": {
+      "address": "0xc960F7217d3643B525Ef36Bec8Adf86953CD9aB8",
+      "startBlock": 11465480,
+      "$note": "parent of ETHRegistry; zero logs observed so far (RegistryCreated predates window or emitted at deploy batch)"
+    },
+    "ETHRegistry": {
+      "address": "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67",
+      "startBlock": 11465480,
+      "$note": "first log (block 11465484, 2026-08-11T10:02Z); anchor name 'eth'"
+    },
+    "ETHRegistrar": {
+      "address": "0x8c2E866B439358c41AE05De9cbE8A00BFEFafFcA",
+      "startBlock": 11479218,
+      "$note": "first log (block 11479222, 2026-08-13T09:08Z)"
+    },
+    "VerifiableFactory": {
+      "address": "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198",
+      "startBlock": 11399030,
+      "$note": "first log (block 11399036, 2026-08-01T21:31Z)"
+    },
+    "PermissionedResolverImpl": {
+      "address": "0xdcE5205A553573FFd47629327DDdf36186022FfA",
+      "$note": "implementation address used to classify ProxyDeployed events"
+    },
+    "UserRegistryImpl": {
+      "address": "0x0F99e7Ea74903AfCB7224d0354fD7428A6f92917",
+      "$note": "implementation address used to classify ProxyDeployed events"
+    },
+    "LockedMigrationController": {
+      "address": "0xF91c34ED840889Ed96F806f882fD50506A336Edb",
+      "$note": "no events emitted (config-only: LabelRegistered.sender classification for isMigrated)"
+    },
+    "UnlockedMigrationController": {
+      "address": "0x056138Ef5660F7113a3B0ADC08ac3683310e7FBC",
+      "$note": "no events emitted (config-only: LabelRegistered.sender classification for isMigrated)"
+    },
+    "MockUSDC": {
+      "address": "0xBA11ebdB3f9a2c5946D8629517f06364E53A2E10",
+      "$note": "payment token for fixtures; permissionless mint(address,uint256)"
+    }
+  }
+}
