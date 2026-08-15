@@ -1,9 +1,10 @@
 # Drift Log
 
 Standing record of ENS contracts-v2 changes that could impact this subgraph,
-maintained by the hourly drift automation (created 2026-08-15). Entries are
+maintained by the 3-hourly drift automation (created 2026-08-15). Entries are
 either "no drift" one-liners, detailed drift analyses, or ACTION-NEEDED items
-(tracking until the repo has a GitHub remote for real issues).
+(file a GitHub issue for those — the repo lives at
+https://github.com/p-diogo/ens-v2-subgraph since 2026-08-15).
 
 ## 2026-08-15 (baseline)
 
