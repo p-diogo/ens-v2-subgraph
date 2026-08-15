@@ -5,3 +5,7 @@ generated/
 tests/parity/snapshots/
 .env
 *.log
+
+.gnd-data/
+.gnd-devnet/
+subgraph.devnet.yaml

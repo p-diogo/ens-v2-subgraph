@@ -1,54 +1,64 @@
 {
-  "$comment": [
-    "Official ENSv2 Sepolia public-beta deployment (announced 2026-08-12).",
-    "Addresses: official docs deployments table (e115ad60.docs-bao.pages.dev/ensv2/overview#deployments-sepolia),",
-    "RootRegistry discovered on-chain via ETHRegistry.getParent().",
-    "Start blocks pinned empirically by first eth_getLogs hit per contract (2026-08-14);",
-    "all addresses verified live via eth_getCode; ETHRegistry event topics verified against",
-    "contracts-v2 branch deploy/sepolia-migration-20260731 (bytecode differs slightly - newer",
-    "revision deployed 2026-08-11 - but the event surface matches every observed topic).",
-    "RC swap: when the next RC redeploy lands, update addresses/startBlocks here and re-run tests."
-  ],
   "sepolia": {
+    "_comment": "Official ENSv2 Sepolia public-beta deployment (announced 2026-08-12). Addresses from the docs deployments table; RootRegistry discovered on-chain via ETHRegistry.getParent(). Start blocks pinned by first eth_getLogs hit (2026-08-14, Tenderly RPC). Verified live via eth_getCode; ETHRegistry event topics verified against contracts-v2 branch deploy/sepolia-migration-20260731. RC swap: update here and re-run tests.",
     "RootRegistry": {
       "address": "0xc960F7217d3643B525Ef36Bec8Adf86953CD9aB8",
-      "startBlock": 11465480,
-      "$note": "parent of ETHRegistry; zero logs observed so far (RegistryCreated predates window or emitted at deploy batch)"
+      "startBlock": 11465480
     },
     "ETHRegistry": {
       "address": "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67",
-      "startBlock": 11465480,
-      "$note": "first log (block 11465484, 2026-08-11T10:02Z); anchor name 'eth'"
+      "startBlock": 11465480
     },
     "ETHRegistrar": {
       "address": "0x8c2E866B439358c41AE05De9cbE8A00BFEFafFcA",
-      "startBlock": 11479218,
-      "$note": "first log (block 11479222, 2026-08-13T09:08Z)"
+      "startBlock": 11479218
     },
     "VerifiableFactory": {
       "address": "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198",
-      "startBlock": 11399030,
-      "$note": "first log (block 11399036, 2026-08-01T21:31Z)"
-    },
-    "PermissionedResolverImpl": {
-      "address": "0xdcE5205A553573FFd47629327DDdf36186022FfA",
-      "$note": "implementation address used to classify ProxyDeployed events"
-    },
-    "UserRegistryImpl": {
-      "address": "0x0F99e7Ea74903AfCB7224d0354fD7428A6f92917",
-      "$note": "implementation address used to classify ProxyDeployed events"
+      "startBlock": 11465480
     },
     "LockedMigrationController": {
       "address": "0xF91c34ED840889Ed96F806f882fD50506A336Edb",
-      "$note": "no events emitted (config-only: LabelRegistered.sender classification for isMigrated)"
+      "startBlock": 11465480
     },
     "UnlockedMigrationController": {
       "address": "0x056138Ef5660F7113a3B0ADC08ac3683310e7FBC",
-      "$note": "no events emitted (config-only: LabelRegistered.sender classification for isMigrated)"
+      "startBlock": 11465480
     },
     "MockUSDC": {
       "address": "0xBA11ebdB3f9a2c5946D8629517f06364E53A2E10",
-      "$note": "payment token for fixtures; permissionless mint(address,uint256)"
+      "startBlock": 11465480
+    }
+  },
+  "devnet": {
+    "_comment": "auto-generated from devnet-31337 by scripts/gen-devnet-networks.py",
+    "RootRegistry": {
+      "address": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+      "startBlock": 0
+    },
+    "ETHRegistry": {
+      "address": "0x36c02da8a0983159322a80ffe9f24b1acff8b570",
+      "startBlock": 0
+    },
+    "ETHRegistrar": {
+      "address": "0x36b58f5c1969b7b6591d752ea6f5486d069010ab",
+      "startBlock": 0
+    },
+    "VerifiableFactory": {
+      "address": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+      "startBlock": 0
+    },
+    "MockUSDC": {
+      "address": "0x322813fd9a801c5507c9de605d63cea4f2ce6c44",
+      "startBlock": 0
+    },
+    "LockedMigrationController": {
+      "address": "0xfbc22278a96299d91d41c453234d97b4f5eb9b2d",
+      "startBlock": 0
+    },
+    "UnlockedMigrationController": {
+      "address": "0xdc11f7e700a4c898ae5caddb1082cffa76512add",
+      "startBlock": 0
     }
   }
 }

@@ -1,9 +1,8 @@
 specVersion: 0.0.8
-description: >-
-  ENSv2 (Sepolia public beta, deployed 2026-08-11) indexed through the v1 ENS
-  subgraph schema for drop-in retrocompatibility. Addresses/startBlocks pinned
-  in networks.json; see docs/PLAN.md.
-repository: "https://github.com/ensdomains/contracts-v2"
+description: ENSv2 (Sepolia public beta, deployed 2026-08-11) indexed through
+  the v1 ENS subgraph schema for drop-in retrocompatibility.
+  Addresses/startBlocks pinned in networks.json; see docs/PLAN.md.
+repository: https://github.com/ensdomains/contracts-v2
 schema:
   file: ./schema.graphql
 dataSources:
@@ -11,9 +10,9 @@ dataSources:
     name: ETHRegistry
     network: sepolia
     source:
-      address: "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67"
-      startBlock: 11465480
       abi: PermissionedRegistry
+      address: "{{ETHRegistry.address}}"
+      startBlock: {{ETHRegistry.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -27,9 +26,11 @@ dataSources:
         - name: PermissionedRegistry
           file: ./abis/live/ETHRegistry.json
       eventHandlers:
-        - event: LabelRegistered(indexed uint256,indexed bytes32,string,address,uint64,indexed address)
+        - event: LabelRegistered(indexed uint256,indexed
+            bytes32,string,address,uint64,indexed address)
           handler: handleLabelRegistered
-        - event: LabelReserved(indexed uint256,indexed bytes32,string,uint64,indexed address)
+        - event: LabelReserved(indexed uint256,indexed bytes32,string,uint64,indexed
+            address)
           handler: handleLabelReserved
         - event: LabelUnregistered(indexed uint256,indexed address)
           handler: handleLabelUnregistered
@@ -45,9 +46,11 @@ dataSources:
           handler: handleTokenResource
         - event: RegistryCreated()
           handler: handleRegistryCreated
-        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+        - event: TransferSingle(indexed address,indexed address,indexed
+            address,uint256,uint256)
           handler: handleTransferSingle
-        - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+        - event: TransferBatch(indexed address,indexed address,indexed
+            address,uint256[],uint256[])
           handler: handleTransferBatch
         - event: EACRolesChanged(indexed uint256,indexed address,uint256,uint256)
           handler: handleEACRolesChanged
@@ -56,9 +59,9 @@ dataSources:
     name: RootRegistry
     network: sepolia
     source:
-      address: "0xc960F7217d3643B525Ef36Bec8Adf86953CD9aB8"
-      startBlock: 11465480
       abi: PermissionedRegistry
+      address: "{{RootRegistry.address}}"
+      startBlock: {{RootRegistry.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -70,20 +73,22 @@ dataSources:
         - name: PermissionedRegistry
           file: ./abis/live/ETHRegistry.json
       eventHandlers:
-        - event: LabelRegistered(indexed uint256,indexed bytes32,string,address,uint64,indexed address)
+        - event: LabelRegistered(indexed uint256,indexed
+            bytes32,string,address,uint64,indexed address)
           handler: handleRootLabelRegistered
         - event: SubregistryUpdated(indexed uint256,indexed address,indexed address)
           handler: handleRootSubregistryUpdated
-        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+        - event: TransferSingle(indexed address,indexed address,indexed
+            address,uint256,uint256)
           handler: handleRootTransferSingle
       file: ./src/registry.ts
   - kind: ethereum
     name: ETHRegistrar
     network: sepolia
     source:
-      address: "0x8c2E866B439358c41AE05De9cbE8A00BFEFafFcA"
-      startBlock: 11479218
       abi: ETHRegistrar
+      address: "{{ETHRegistrar.address}}"
+      startBlock: {{ETHRegistrar.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -96,18 +101,21 @@ dataSources:
         - name: ETHRegistrar
           file: ./abis/live/ETHRegistrar.json
       eventHandlers:
-        - event: NameRegistered(indexed uint256,string,address,address,address,uint64,address,indexed bytes32,uint256,uint256)
+        - event: NameRegistered(indexed
+            uint256,string,address,address,address,uint64,address,indexed
+            bytes32,uint256,uint256)
           handler: handleRegistrarNameRegistered
-        - event: NameRenewed(indexed uint256,string,uint64,uint64,address,indexed bytes32,uint256)
+        - event: NameRenewed(indexed uint256,string,uint64,uint64,address,indexed
+            bytes32,uint256)
           handler: handleRegistrarNameRenewed
       file: ./src/registrar.ts
   - kind: ethereum
     name: VerifiableFactory
     network: sepolia
     source:
-      address: "0xD2a632D8a8b67c2c4398c255CbD7aF8dd7236198"
-      startBlock: 11465480
       abi: VerifiableFactory
+      address: "{{VerifiableFactory.address}}"
+      startBlock: {{VerifiableFactory.startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.8
@@ -138,7 +146,8 @@ templates:
         - name: UserRegistry
           file: ./abis/live/UserRegistry.json
       eventHandlers:
-        - event: LabelRegistered(indexed uint256,indexed bytes32,string,address,uint64,indexed address)
+        - event: LabelRegistered(indexed uint256,indexed
+            bytes32,string,address,uint64,indexed address)
           handler: handleSubregistryLabelRegistered
         - event: LabelUnregistered(indexed uint256,indexed address)
           handler: handleSubregistryLabelUnregistered
@@ -152,9 +161,11 @@ templates:
           handler: handleSubregistryTokenRegenerated
         - event: TokenResource(indexed uint256,indexed uint256)
           handler: handleSubregistryTokenResource
-        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+        - event: TransferSingle(indexed address,indexed address,indexed
+            address,uint256,uint256)
           handler: handleSubregistryTransferSingle
-        - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+        - event: TransferBatch(indexed address,indexed address,indexed
+            address,uint256[],uint256[])
           handler: handleSubregistryTransferBatch
       file: ./src/registry.ts
   - kind: ethereum
