@@ -94,3 +94,15 @@ Verdict: no drift.
   PRs (none updated), gist unchanged (2026-08-13 12:49), fleet still down.
 
 Verdict: no drift.
+
+## 2026-08-16T13:55Z (run 9)
+
+- No movement: tracked heads unchanged (be6cf898/80f6d90f/52beb140/48b3e2d3),
+  gist unchanged (2026-08-13 12:49), fleet still down (same Railway TLS
+  mismatch). PRs: none updated since run 8. Baseline note: branch-pattern
+  count is 54 not 47 — grep-baseline artifact; all delta branches are old
+  (newest commit 2026-07-01). PR #415 (ROLE_CAN_USE on PermissionedResolver,
+  Aug 15) touches roles/functions only, zero event declarations —
+  informational (we index events only).
+
+Verdict: no drift.
