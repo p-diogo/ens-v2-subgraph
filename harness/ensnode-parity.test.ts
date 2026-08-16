@@ -22,7 +22,8 @@
 import { execFileSync } from 'node:child_process'
 import { createChecker, ETH_NODE, gql, type DomainRow } from './lib'
 
-const BETA_REGISTRAR = '0x8c2e866b439358c41ae05De9cbE8A00BFEFafFcA'
+// lowercase: registrar_address is stored lowercase and PG compares case-sensitively
+const BETA_REGISTRAR = '0x8c2e866b439358c41ae05de9cbe8a00bfefaffca'
 // psql output buffer headroom for wide oracle result sets
 const MAX_BUFFER_BYTES = 64 * 1024 * 1024
 
