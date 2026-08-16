@@ -212,6 +212,13 @@ function transferSingleCore(
 
   const domain = Domain.load(node!);
   if (domain == null) {
+    // mapping exists but the domain does not: broken invariant (a
+    // LabelRegistered always precedes any token-carrying event)
+    log.warning("TransferSingle for mapped tokenId {} but missing domain {} on {}", [
+      tokenId.toString(),
+      node!,
+      registry.toHexString(),
+    ]);
     return;
   }
   domain.owner = ownerHex;
@@ -277,7 +284,7 @@ function resolverUpdatedCore(
   } else {
     resolver = Resolver.load(resolverId(resolverAddr, node!));
     if (resolver == null) {
-      resolver = createOrLoadResolver(resolverAddr, node!, true);
+      resolver = createOrLoadResolver(resolverAddr, node!);
       // both resolver generations are spawned: only one emits on a given
       // contract, so the RC lands with no code change here
       ResolverLiveTemplate.create(resolverAddr);
@@ -287,7 +294,14 @@ function resolverUpdatedCore(
   }
 
   const domain = Domain.load(node!);
-  if (domain == null) return;
+  if (domain == null) {
+    log.warning("ResolverUpdated for mapped tokenId {} but missing domain {} on {}", [
+      tokenId.toString(),
+      node!,
+      registry.toHexString(),
+    ]);
+    return;
+  }
   domain.resolver = id;
   domain.resolvedAddress = resolver != null ? resolver.addr : null;
   saveDomain(domain);
@@ -336,7 +350,14 @@ function labelUnregisteredCore(
     return;
   }
   const domain = Domain.load(node!);
-  if (domain == null) return;
+  if (domain == null) {
+    log.warning("LabelUnregistered for mapped tokenId {} but missing domain {} on {}", [
+      tokenId.toString(),
+      node!,
+      registry.toHexString(),
+    ]);
+    return;
+  }
   // Raw unregister timestamp, no grace - the name is dead (the registrar's
   // renewal path owns the +grace convention; cross-contract event ordering
   // is documented in registrar.ts's header).
@@ -361,7 +382,14 @@ function expiryUpdatedCore(
     return;
   }
   const domain = Domain.load(node!);
-  if (domain == null) return;
+  if (domain == null) {
+    log.warning("ExpiryUpdated for mapped tokenId {} but missing domain {} on {}", [
+      tokenId.toString(),
+      node!,
+      registry.toHexString(),
+    ]);
+    return;
+  }
   // Registry-side expiry is authoritative raw; registrar events add the v1
   // grace on top for .eth 2LDs (parity-verified against findExpiry+grace).
   domain.expiryDate = newExpiry;

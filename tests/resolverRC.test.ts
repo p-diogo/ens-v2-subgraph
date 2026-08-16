@@ -20,12 +20,20 @@ import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 import {
   AddressUpdated,
   TextUpdated,
+  ContenthashUpdated,
+  ABIUpdated,
+  InterfaceUpdated,
+  NameUpdated,
   Cleared,
 } from "../generated/templates/ResolverRC/SharedResolver";
 import { Domain } from "../generated/schema";
 import {
   handleRCAddressUpdated,
   handleRCTextUpdated,
+  handleRCContenthashUpdated,
+  handleRCABIUpdated,
+  handleRCInterfaceUpdated,
+  handleRCNameUpdated,
   handleRCCleared,
   recordNode,
 } from "../src/resolverRC";
@@ -173,5 +181,73 @@ describe("RC Cleared", () => {
     // Cleared maps onto v1's VersionChanged clearing semantics (version 0)
     assert.entityCount("VersionChanged", 1);
     assert.fieldEquals("VersionChanged", "7-3", "version", "0");
+  });
+});
+
+
+function recordIdParam(recordId: i32): ethereum.EventParam {
+  return new ethereum.EventParam("recordId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(recordId)));
+}
+
+describe("RC emission handlers", () => {
+  test("ContenthashUpdated stores contentHash via recordNode", () => {
+    clearStore();
+    const node = seedLinkedDomain(5);
+    const id = resolverId(Address.fromString(RESOLVER), node);
+    let event = changetype<ContenthashUpdated>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(recordIdParam(5));
+    event.parameters.push(new ethereum.EventParam("hash", ethereum.Value.fromBytes(Bytes.fromHexString("0xe30101701220" + "ab".repeat(32)))));
+    handleRCContenthashUpdated(event);
+    assert.fieldEquals("Resolver", id, "contentHash", ("0xe30101701220" + "ab".repeat(32)));
+    assert.entityCount("ContenthashChanged", 1);
+  });
+
+  test("ABIUpdated emits AbiChanged", () => {
+    clearStore();
+    seedLinkedDomain(6);
+    let event = changetype<ABIUpdated>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(recordIdParam(6));
+    event.parameters.push(new ethereum.EventParam("contentType", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(3))));
+    handleRCABIUpdated(event);
+    assert.fieldEquals("AbiChanged", "1-1", "contentType", "3");
+  });
+
+  test("InterfaceUpdated emits InterfaceChanged", () => {
+    clearStore();
+    seedLinkedDomain(7);
+    let event = changetype<InterfaceUpdated>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(recordIdParam(7));
+    event.parameters.push(new ethereum.EventParam("interfaceId", ethereum.Value.fromFixedBytes(Bytes.fromHexString("0x3b3b57de"))));
+    event.parameters.push(new ethereum.EventParam("implementer", ethereum.Value.fromAddress(Address.fromString(RESOLVER))));
+    handleRCInterfaceUpdated(event);
+    assert.fieldEquals("InterfaceChanged", "1-1", "implementer", RESOLVER);
+  });
+
+  test("NameUpdated emits for a valid name; null byte is dropped", () => {
+    clearStore();
+    seedLinkedDomain(8);
+    const good = changetype<NameUpdated>(newMockEvent());
+    good.address = Address.fromString(RESOLVER);
+    good.parameters = new Array();
+    good.parameters.push(recordIdParam(8));
+    good.parameters.push(new ethereum.EventParam("primaryName", ethereum.Value.fromString("demo.eth")));
+    handleRCNameUpdated(good);
+    assert.entityCount("NameChanged", 1);
+
+    clearStore();
+    seedLinkedDomain(8);
+    const bad = changetype<NameUpdated>(newMockEvent());
+    bad.address = Address.fromString(RESOLVER);
+    bad.parameters = new Array();
+    bad.parameters.push(recordIdParam(8));
+    bad.parameters.push(new ethereum.EventParam("primaryName", ethereum.Value.fromString("bad\u0000name")));
+    handleRCNameUpdated(bad);
+    assert.entityCount("NameChanged", 0);
   });
 });

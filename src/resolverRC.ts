@@ -51,7 +51,7 @@ export function recordNode(recordId: BigInt): string {
 
 export function handleRCAddressUpdated(event: AddressUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = createOrLoadResolver(event.address, node, true);
+  let resolver = createOrLoadResolver(event.address, node);
 
   const coinType = event.params.coinType;
   if (trackCoinType(resolver, coinType)) {
@@ -96,7 +96,7 @@ export function handleRCAddressUpdated(event: AddressUpdated): void {
 
 export function handleRCTextUpdated(event: TextUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = createOrLoadResolver(event.address, node, true);
+  let resolver = createOrLoadResolver(event.address, node);
 
   const key = event.params.key;
   if (trackTextKey(resolver, key)) {
@@ -114,7 +114,7 @@ export function handleRCTextUpdated(event: TextUpdated): void {
 
 export function handleRCContenthashUpdated(event: ContenthashUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = createOrLoadResolver(event.address, node, true);
+  let resolver = createOrLoadResolver(event.address, node);
   resolver.contentHash = event.params.hash;
   resolver.save();
 
@@ -128,7 +128,7 @@ export function handleRCContenthashUpdated(event: ContenthashUpdated): void {
 
 export function handleRCABIUpdated(event: ABIUpdated): void {
   const node = recordNode(event.params.recordId);
-  const resolver = createOrLoadResolver(event.address, node, true);
+  const resolver = createOrLoadResolver(event.address, node);
 
   let resolverEvent = new AbiChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -140,7 +140,7 @@ export function handleRCABIUpdated(event: ABIUpdated): void {
 
 export function handleRCInterfaceUpdated(event: InterfaceUpdated): void {
   const node = recordNode(event.params.recordId);
-  const resolver = createOrLoadResolver(event.address, node, true);
+  const resolver = createOrLoadResolver(event.address, node);
 
   let resolverEvent = new InterfaceChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -159,7 +159,7 @@ export function handleRCNameUpdated(event: NameUpdated): void {
     return;
   }
   const node = recordNode(event.params.recordId);
-  const resolver = createOrLoadResolver(event.address, node, true);
+  const resolver = createOrLoadResolver(event.address, node);
 
   let resolverEvent = new NameChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -187,5 +187,5 @@ export function handleRCCleared(event: Cleared): void {
     domain.save();
   }
 
-  clearResolverRecords(createOrLoadResolver(event.address, node, true));
+  clearResolverRecords(createOrLoadResolver(event.address, node));
 }

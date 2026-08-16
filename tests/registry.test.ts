@@ -13,6 +13,7 @@ import {
   LabelRegistered as ETHLabelRegistered,
   LabelUnregistered,
   ExpiryUpdated,
+  ResolverUpdated,
   TokenRegenerated,
   TransferSingle,
   TransferBatch,
@@ -24,6 +25,7 @@ import {
   handleLabelRegistered,
   handleLabelUnregistered,
   handleExpiryUpdated,
+  handleResolverUpdated,
   handleTokenRegenerated,
   handleTransferSingle,
   handleTransferBatch,
@@ -358,5 +360,46 @@ describe("registry: LabelUnregistered + burn prune", () => {
     assert.fieldEquals("Domain", ETH_NODE, "subdomainCount", "0");
     // entity survives (v1 pruning never removes rows)
     assert.entityCount("Domain", 3); // root + eth + asteria
+  });
+});
+
+
+describe("registry: guard paths (unknown tokenIds are warn-and-skip)", () => {
+  test("TransferSingle for an unminted tokenId writes nothing", () => {
+    clearStore();
+    handleLabelRegistered(
+      labelRegisteredEvent(1, "asteria", OWNER, EXPIRY, REGISTRAR, ETH_REGISTRY),
+    );
+    const node = namehashOf("asteria");
+
+    handleTransferSingle(transferSingleEvent(OWNER, OWNER2, 999, ETH_REGISTRY));
+
+    assert.entityCount("Transfer", 0);
+    assert.fieldEquals("Domain", node, "owner", OWNER); // untouched
+  });
+
+  test("ResolverUpdated for an unminted tokenId writes nothing", () => {
+    clearStore();
+    let event = changetype<ResolverUpdated>(newMockEvent());
+    event.address = Address.fromString(ETH_REGISTRY);
+    event.parameters = new Array();
+    event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(999))));
+    event.parameters.push(new ethereum.EventParam("resolver", ethereum.Value.fromAddress(Address.fromString("0x9794eb37f93ff7f8c5904f18f16796b8521f0f69"))));
+    event.parameters.push(new ethereum.EventParam("sender", ethereum.Value.fromAddress(Address.fromString(OWNER))));
+    handleResolverUpdated(event);
+    assert.entityCount("NewResolver", 0);
+  });
+
+  test("bracket-char labels fall back to [labelhash] names", () => {
+    clearStore();
+    // '[' is rejected by checkValidLabel (null bytes don't survive mock string
+    // marshalling; the null-byte NAME paths are covered in the resolver tests)
+    const labelHash = keccakStr("bad[label");
+    const node = subnodeOf(ETH_NODE, labelHash);
+    handleLabelRegistered(
+      labelRegisteredEvent(4, "bad[label", OWNER, EXPIRY, REGISTRAR, ETH_REGISTRY),
+    );
+    // invalid label -> no labelName ever set; name falls back to [labelhash]
+    assert.fieldEquals("Domain", node, "name", "[" + labelHash.toHexString().slice(2) + "]" + ".eth");
   });
 });

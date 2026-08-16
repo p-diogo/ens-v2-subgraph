@@ -48,7 +48,15 @@ export async function gql<T>(query: string, variables?: Record<string, unknown>)
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
   })
-  const body = (await res.json()) as GraphQLResponse<T>
+  if (!res.ok) {
+    throw new Error(`gql ${endpoint} failed: HTTP ${res.status} (start the node with: bash scripts/dev.sh)`)
+  }
+  let body: GraphQLResponse<T>
+  try {
+    body = (await res.json()) as GraphQLResponse<T>
+  } catch (e) {
+    throw new Error(`gql ${endpoint} returned non-JSON (HTTP ${res.status}): ${(e as Error).message}`)
+  }
   if (body.errors) throw new Error(JSON.stringify(body.errors).slice(0, 400))
   return body.data as T
 }

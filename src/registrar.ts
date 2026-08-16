@@ -71,11 +71,18 @@ export function handleRegistrarNameRegistered(event: NameRegistered): void {
   registration.save();
 
   const domain = Domain.load(node);
-  if (domain != null) {
-    domain.registrant = ownerHex;
-    domain.expiryDate = expiry.plus(GRACE_PERIOD_SECONDS);
-    domain.save();
+  if (domain == null) {
+    // registry LabelRegistered fires first in the same tx (header contract);
+    // a missing domain means that ordering broke
+    log.warning("NameRegistered for known label {} but missing domain {}", [
+      label,
+      node,
+    ]);
+    return;
   }
+  domain.registrant = ownerHex;
+  domain.expiryDate = expiry.plus(GRACE_PERIOD_SECONDS);
+  domain.save();
 
   let registrationEvent = new NameRegisteredEntity(
     createEventID(event.block.number, event.logIndex),
@@ -100,10 +107,15 @@ export function handleRegistrarNameRenewed(event: NameRenewed): void {
   registration.save();
 
   const domain = Domain.load(registration.domain!);
-  if (domain != null) {
-    domain.expiryDate = event.params.newExpiry.plus(GRACE_PERIOD_SECONDS);
-    domain.save();
+  if (domain == null) {
+    log.warning("NameRenewed for known label {} but missing domain {}", [
+      event.params.label,
+      registration.domain!,
+    ]);
+    return;
   }
+  domain.expiryDate = event.params.newExpiry.plus(GRACE_PERIOD_SECONDS);
+  domain.save();
 
   let registrationEvent = new NameRenewedEntity(
     createEventID(event.block.number, event.logIndex),

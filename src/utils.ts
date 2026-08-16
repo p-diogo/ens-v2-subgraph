@@ -27,7 +27,8 @@ export const UNLOCKED_MIGRATION_CONTROLLER = "0x056138ef5660f7113a3b0adc08ac3683
 export const GRACE_PERIOD_SECONDS = BigInt.fromI32(7776000);
 
 // Helper for concatenating two byte arrays
-export function concat(a: ByteArray, b: ByteArray): ByteArray {
+// ByteArray concatenation backing subnodeHash (kept private: single caller).
+function concat(a: ByteArray, b: ByteArray): ByteArray {
   let out = new Uint8Array(a.length + b.length);
   for (let i = 0; i < a.length; i++) {
     out[i] = a[i];
@@ -64,23 +65,17 @@ export function resolverId(resolverAddress: Address, node: string): string {
   return resolverAddress.toHexString() + "-" + node;
 }
 
-// Load-or-create a Resolver for (address, node). saveOnNew=false is for
-// handlers that mutate record fields and save afterwards; true persists the
-// entity immediately so a ResolverEvent can reference it.
-export function createOrLoadResolver(
-  address: Address,
-  node: string,
-  saveOnNew: boolean,
-): Resolver {
+// Load-or-create a Resolver for (address, node). Always persists a fresh
+// entity immediately: every caller emits a ResolverEvent that references it,
+// so an unsaved entity would dangle.
+export function createOrLoadResolver(address: Address, node: string): Resolver {
   let id = resolverId(address, node);
   let resolver = Resolver.load(id);
   if (resolver == null) {
     resolver = new Resolver(id);
     resolver.domain = node;
     resolver.address = address;
-    if (saveOnNew) {
-      resolver.save();
-    }
+    resolver.save();
   }
   return resolver!;
 }

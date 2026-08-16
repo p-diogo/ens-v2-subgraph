@@ -15,6 +15,10 @@ import {
   AddressChanged,
   TextChanged,
   ContenthashChanged,
+  ABIChanged,
+  InterfaceChanged,
+  PubkeyChanged,
+  NameChanged,
   VersionChanged,
 } from "../generated/templates/ResolverLive/PermissionedResolver";
 import { handleLabelRegistered, handleResolverUpdated } from "../src/registry";
@@ -23,6 +27,10 @@ import {
   handleAddressChanged,
   handleTextChanged,
   handleContenthashChanged,
+  handleABIChanged,
+  handleInterfaceChanged,
+  handlePubkeyChanged,
+  handleNameChanged,
   handleVersionChanged,
 } from "../src/resolverLive";
 import {
@@ -189,5 +197,86 @@ describe("resolverLive: record events", () => {
     assert.fieldEquals("Resolver", RESOLVER_ID, "texts", "null");
     assert.fieldEquals("Domain", NODE, "resolvedAddress", "null");
     assert.entityCount("VersionChanged", 1);
+  });
+});
+
+
+function nodeParam(node: string): ethereum.EventParam {
+  return new ethereum.EventParam("node", ethereum.Value.fromFixedBytes(Bytes.fromByteArray(byteArrayFromHex(node.slice(2)))));
+}
+
+describe("resolverLive: emission handlers", () => {
+  test("ABIChanged emits AbiChanged", () => {
+    clearStore();
+    seedDomain(3, "resolvedemo", RESOLVER);
+    let event = changetype<ABIChanged>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(nodeParam(NODE));
+    event.parameters.push(new ethereum.EventParam("contentType", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(2))));
+    handleABIChanged(event);
+    assert.fieldEquals("AbiChanged", "1-1", "contentType", "2");
+    assert.entityCount("AbiChanged", 1);
+  });
+
+  test("InterfaceChanged emits InterfaceChanged", () => {
+    clearStore();
+    seedDomain(3, "resolvedemo", RESOLVER);
+    let event = changetype<InterfaceChanged>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(nodeParam(NODE));
+    event.parameters.push(new ethereum.EventParam("interfaceID", ethereum.Value.fromFixedBytes(Bytes.fromHexString("0x3b3b57de"))));
+    event.parameters.push(new ethereum.EventParam("implementer", ethereum.Value.fromAddress(Address.fromString(RESOLVER))));
+    handleInterfaceChanged(event);
+    assert.fieldEquals("InterfaceChanged", "1-1", "implementer", RESOLVER);
+    assert.entityCount("InterfaceChanged", 1);
+  });
+
+  test("PubkeyChanged emits PubkeyChanged", () => {
+    clearStore();
+    seedDomain(3, "resolvedemo", RESOLVER);
+    let event = changetype<PubkeyChanged>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(nodeParam(NODE));
+    event.parameters.push(new ethereum.EventParam("x", ethereum.Value.fromFixedBytes(Bytes.fromHexString("0x" + "11".repeat(32)))));
+    event.parameters.push(new ethereum.EventParam("y", ethereum.Value.fromFixedBytes(Bytes.fromHexString("0x" + "22".repeat(32)))));
+    handlePubkeyChanged(event);
+    assert.entityCount("PubkeyChanged", 1);
+  });
+
+  test("NameChanged emits NameChanged for a valid name", () => {
+    clearStore();
+    seedDomain(3, "resolvedemo", RESOLVER);
+    let event = changetype<NameChanged>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(nodeParam(NODE));
+    event.parameters.push(new ethereum.EventParam("name", ethereum.Value.fromString("resolvedemo.eth")));
+    handleNameChanged(event);
+    assert.fieldEquals("NameChanged", "1-1", "name", "resolvedemo.eth");
+    assert.entityCount("NameChanged", 1);
+  });
+
+  test("NameChanged with a null byte is dropped (no entity)", () => {
+    clearStore();
+    seedDomain(3, "resolvedemo", RESOLVER);
+    let event = changetype<NameChanged>(newMockEvent());
+    event.address = Address.fromString(RESOLVER);
+    event.parameters = new Array();
+    event.parameters.push(nodeParam(NODE));
+    event.parameters.push(new ethereum.EventParam("name", ethereum.Value.fromString("bad\u0000name")));
+    handleNameChanged(event);
+    assert.entityCount("NameChanged", 0);
+  });
+});
+
+describe("resolverLive: guard paths", () => {
+  test("record events for an unlinked node still write the Resolver (v1 lazy-create)", () => {
+    clearStore();
+    // no seedDomain: ResolverUpdated never linked this resolver
+    handleAddrChanged(addrChangedEvent(NODE, ADDR2));
+    assert.entityCount("AddrChanged", 1);
   });
 });

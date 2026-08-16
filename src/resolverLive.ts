@@ -42,7 +42,7 @@ export function handleAddrChanged(event: AddrChanged): void {
   const addrHex = event.params.a.toHexString();
   createOrLoadAccount(addrHex);
 
-  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), true);
+  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
   resolver.addr = addrHex;
   resolver.save();
 
@@ -61,7 +61,7 @@ export function handleAddrChanged(event: AddrChanged): void {
 }
 
 export function handleAddressChanged(event: AddressChanged): void {
-  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), false);
+  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   const coinType = event.params.coinType;
   if (trackCoinType(resolver, coinType)) {
@@ -78,7 +78,7 @@ export function handleAddressChanged(event: AddressChanged): void {
 }
 
 export function handleTextChanged(event: TextChanged): void {
-  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), false);
+  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   const key = event.params.key;
   if (trackTextKey(resolver, key)) {
@@ -95,7 +95,7 @@ export function handleTextChanged(event: TextChanged): void {
 }
 
 export function handleContenthashChanged(event: ContenthashChanged): void {
-  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), false);
+  let resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
   resolver.contentHash = event.params.hash;
   resolver.save();
 
@@ -108,7 +108,7 @@ export function handleContenthashChanged(event: ContenthashChanged): void {
 }
 
 export function handleABIChanged(event: ABIChanged): void {
-  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), true);
+  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   let resolverEvent = new AbiChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -119,7 +119,7 @@ export function handleABIChanged(event: ABIChanged): void {
 }
 
 export function handleInterfaceChanged(event: InterfaceChanged): void {
-  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), true);
+  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   let resolverEvent = new InterfaceChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -131,7 +131,7 @@ export function handleInterfaceChanged(event: InterfaceChanged): void {
 }
 
 export function handlePubkeyChanged(event: PubkeyChanged): void {
-  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), true);
+  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   let resolverEvent = new PubkeyChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -150,7 +150,7 @@ export function handleNameChanged(event: NameChanged): void {
     return;
   }
 
-  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString(), true);
+  const resolver = createOrLoadResolver(event.address, event.params.node.toHexString());
 
   let resolverEvent = new NameChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -177,5 +177,5 @@ export function handleVersionChanged(event: VersionChanged): void {
     domain.save();
   }
 
-  clearResolverRecords(createOrLoadResolver(event.address, node, false));
+  clearResolverRecords(createOrLoadResolver(event.address, node));
 }
