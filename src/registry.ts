@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, crypto, log } from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   LabelRegistered as ETHLabelRegistered,
   LabelReserved,
@@ -38,13 +38,15 @@ import { Domain, ExpiryExtended, NameTransferred, NewOwner, NewResolver, Registr
 import {
   byteArrayFromHex,
   checkValidLabel,
-  concat,
   createEventID,
   createOrLoadAccount,
+  createOrLoadResolver,
   EMPTY_ADDRESS,
   ETH_NODE,
   LOCKED_MIGRATION_CONTROLLER,
+  resolverId,
   ROOT_NODE,
+  subnodeHash,
   UNLOCKED_MIGRATION_CONTROLLER,
 } from "./utils";
 import {
@@ -73,6 +75,10 @@ export function handleLabelRegistered(event: ETHLabelRegistered): void {
   );
 }
 
+// v1's recurseDomainDelete: deletion is LOGICAL ONLY — no entity is removed;
+// empty domains persist (zero owner/resolver) while ancestor subdomainCounts
+// are decremented up the chain. Returns the surviving domain id (v1 shape;
+// callers ignore it).
 function recurseDomainDelete(domain: Domain): string | null {
   if (
     (domain.resolver == null ||
@@ -80,6 +86,9 @@ function recurseDomainDelete(domain: Domain): string | null {
     domain.owner == EMPTY_ADDRESS &&
     domain.subdomainCount == 0
   ) {
+    if (domain.parent == null) {
+      return null;
+    }
     const parentDomain = Domain.load(domain.parent!);
     if (parentDomain != null) {
       parentDomain.subdomainCount = parentDomain.subdomainCount - 1;
@@ -120,9 +129,7 @@ function labelRegisteredCore(
   createOrLoadAccount(ownerHex);
 
   const parentNode = byteArrayFromHex(parentNodeHex.slice(2));
-  const subnode = crypto
-    .keccak256(concat(parentNode, labelHash))
-    .toHexString();
+  const subnode = subnodeHash(parentNode, labelHash).toHexString();
   let domain = Domain.load(subnode);
   if (domain == null) {
     domain = new Domain(subnode);
@@ -157,6 +164,9 @@ function labelRegisteredCore(
   domain.parent = parentNodeHex;
   domain.labelhash = labelHash;
   domain.isMigrated = isMigrationController(sender);
+  // Raw registry expiry; the registrar's NameRegistered (which fires after
+  // the mint in the same flow) overwrites with expiry+grace for .eth 2LDs —
+  // see registrar.ts header for the cross-contract ordering contract.
   domain.expiryDate = expiry;
   domain.registrant = ownerHex;
   saveDomain(domain);
@@ -173,16 +183,23 @@ function labelRegisteredCore(
 }
 
 
+// All *Core functions take the event provenance tail
+// (..., blockNumber, logIndex, txHash). idSuffix disambiguates event-entity
+// ids for TransferBatch items sharing one log: graph-node upserts by id, so
+// without a per-item suffix N-1 of a batch's Transfer/NameTransferred
+// entities would be overwritten (single transfers pass "" and keep the v1
+// "blockNumber-logIndex" id shape).
 function transferSingleCore(
   registry: Address,
   to: Address,
   tokenId: BigInt,
-  txHash: Bytes,
   blockNumber: BigInt,
   logIndex: BigInt,
+  txHash: Bytes,
+  idSuffix: string,
 ): void {
   const node = loadNodeForToken(registry, tokenId);
-  if (!node) {
+  if (node == null) {
     log.warning("TransferSingle for unknown tokenId {} on {}", [
       tokenId.toString(),
       registry.toHexString(),
@@ -193,17 +210,19 @@ function transferSingleCore(
   const ownerHex = to.toHexString();
   createOrLoadAccount(ownerHex);
 
-  const domain = Domain.load(node);
+  const domain = Domain.load(node!);
   if (domain == null) {
     return;
   }
   domain.owner = ownerHex;
   saveDomain(domain);
 
-  let domainEvent = new Transfer(createEventID(blockNumber, logIndex));
+  let domainEvent = new Transfer(
+    createEventID(blockNumber, logIndex).concat(idSuffix),
+  );
   domainEvent.blockNumber = blockNumber.toI32();
   domainEvent.transactionID = txHash;
-  domainEvent.domain = node;
+  domainEvent.domain = node!;
   domainEvent.owner = ownerHex;
   domainEvent.save();
 
@@ -219,7 +238,9 @@ function transferSingleCore(
       domain.save();
       registration.registrant = ownerHex;
       registration.save();
-      let transferEvent = new NameTransferred(createEventID(blockNumber, logIndex));
+      let transferEvent = new NameTransferred(
+        createEventID(blockNumber, logIndex).concat(idSuffix),
+      );
       transferEvent.registration = labelHashHex;
       transferEvent.blockNumber = blockNumber.toI32();
       transferEvent.transactionID = txHash;
@@ -241,7 +262,7 @@ function resolverUpdatedCore(
   txHash: Bytes,
 ): void {
   const node = loadNodeForToken(registry, tokenId);
-  if (!node) {
+  if (node == null) {
     log.warning("ResolverUpdated for unknown tokenId {} on {}", [
       tokenId.toString(),
       registry.toHexString(),
@@ -250,38 +271,33 @@ function resolverUpdatedCore(
   }
 
   let id: string | null;
+  let resolver: Resolver | null = null;
   if (resolverAddr == Address.zero()) {
     id = null;
   } else {
-    id = resolverAddr.toHexString() + "-" + node;
-    let resolver = Resolver.load(id!);
+    resolver = Resolver.load(resolverId(resolverAddr, node!));
     if (resolver == null) {
-      resolver = new Resolver(id!);
-      resolver.domain = node;
-      resolver.address = resolverAddr;
-      resolver.save();
+      resolver = createOrLoadResolver(resolverAddr, node!, true);
       // both resolver generations are spawned: only one emits on a given
       // contract, so the RC lands with no code change here
       ResolverLiveTemplate.create(resolverAddr);
       ResolverRCTemplate.create(resolverAddr);
     }
+    id = resolver.id;
   }
 
-  const domain = Domain.load(node);
+  const domain = Domain.load(node!);
   if (domain == null) return;
   domain.resolver = id;
-  if (id != null) {
-    let resolver = Resolver.load(id!);
-    domain.resolvedAddress = resolver != null ? resolver.addr : null;
-  } else {
-    domain.resolvedAddress = null;
-  }
+  domain.resolvedAddress = resolver != null ? resolver.addr : null;
   saveDomain(domain);
 
   let domainEvent = new NewResolver(createEventID(blockNumber, logIndex));
   domainEvent.blockNumber = blockNumber.toI32();
   domainEvent.transactionID = txHash;
-  domainEvent.domain = node;
+  domainEvent.domain = node!;
+  // v1 parity: the schema's non-null FK gets the empty-address sentinel when
+  // the resolver is unset (byte-for-byte v1 schema keeps Resolver!).
   domainEvent.resolver = id != null ? id! : EMPTY_ADDRESS;
   domainEvent.save();
 }
@@ -292,14 +308,14 @@ function subregistryUpdatedCore(
   subregistry: Address,
 ): void {
   const node = loadNodeForToken(registry, tokenId);
-  if (!node) {
+  if (node == null) {
     log.warning("SubregistryUpdated for unknown tokenId {} on {}", [
       tokenId.toString(),
       registry.toHexString(),
     ]);
     return;
   }
-  anchorSubregistry(subregistry, node);
+  anchorSubregistry(subregistry, node!);
   if (subregistry != Address.zero()) {
     SubregistryTemplate.create(subregistry);
   }
@@ -312,9 +328,18 @@ function labelUnregisteredCore(
   blockTimestamp: BigInt,
 ): void {
   const node = loadNodeForToken(registry, tokenId);
-  if (!node) return;
-  const domain = Domain.load(node);
+  if (node == null) {
+    log.warning("LabelUnregistered for unknown tokenId {} on {}", [
+      tokenId.toString(),
+      registry.toHexString(),
+    ]);
+    return;
+  }
+  const domain = Domain.load(node!);
   if (domain == null) return;
+  // Raw unregister timestamp, no grace - the name is dead (the registrar's
+  // renewal path owns the +grace convention; cross-contract event ordering
+  // is documented in registrar.ts's header).
   domain.expiryDate = blockTimestamp;
   saveDomain(domain);
 }
@@ -328,16 +353,24 @@ function expiryUpdatedCore(
   txHash: Bytes,
 ): void {
   const node = loadNodeForToken(registry, tokenId);
-  if (!node) return;
-  const domain = Domain.load(node);
+  if (node == null) {
+    log.warning("ExpiryUpdated for unknown tokenId {} on {}", [
+      tokenId.toString(),
+      registry.toHexString(),
+    ]);
+    return;
+  }
+  const domain = Domain.load(node!);
   if (domain == null) return;
+  // Registry-side expiry is authoritative raw; registrar events add the v1
+  // grace on top for .eth 2LDs (parity-verified against findExpiry+grace).
   domain.expiryDate = newExpiry;
   saveDomain(domain);
 
   let domainEvent = new ExpiryExtended(createEventID(blockNumber, logIndex));
   domainEvent.blockNumber = blockNumber.toI32();
   domainEvent.transactionID = txHash;
-  domainEvent.domain = node;
+  domainEvent.domain = node!;
   domainEvent.expiryDate = newExpiry;
   domainEvent.save();
 }
@@ -348,8 +381,14 @@ function tokenRegeneratedCore(
   newTokenId: BigInt,
 ): void {
   const node = loadNodeForToken(registry, oldTokenId);
-  if (!node) return;
-  saveTokenId(registry, newTokenId, node);
+  if (node == null) {
+    log.warning("TokenRegenerated for unknown tokenId {} on {}", [
+      oldTokenId.toString(),
+      registry.toHexString(),
+    ]);
+    return;
+  }
+  saveTokenId(registry, newTokenId, node!);
 }
 
 export function handleLabelReserved(event: LabelReserved): void {}
@@ -382,9 +421,10 @@ export function handleTransferSingle(event: TransferSingle): void {
     event.address,
     event.params.to,
     event.params.id,
-    event.transaction.hash,
     event.block.number,
     event.logIndex,
+    event.transaction.hash,
+    "",
   );
 }
 export function handleTransferBatch(event: TransferBatch): void {
@@ -393,9 +433,10 @@ export function handleTransferBatch(event: TransferBatch): void {
       event.address,
       event.params.to,
       event.params.ids[i],
-      event.transaction.hash,
       event.block.number,
       event.logIndex,
+      event.transaction.hash,
+      "-" + i.toString(),
     );
   }
 }
@@ -425,9 +466,10 @@ export function handleRootTransferSingle(event: RootTransferSingleEvent): void {
     event.address,
     event.params.to,
     event.params.id,
-    event.transaction.hash,
     event.block.number,
     event.logIndex,
+    event.transaction.hash,
+    "",
   );
 }
 export function handleSubregistryLabelRegistered(event: SubLabelRegistered): void {
@@ -481,9 +523,10 @@ export function handleSubregistryTransferSingle(event: SubTransferSingle): void 
     event.address,
     event.params.to,
     event.params.id,
-    event.transaction.hash,
     event.block.number,
     event.logIndex,
+    event.transaction.hash,
+    "",
   );
 }
 export function handleSubregistryTransferBatch(event: SubTransferBatch): void {
@@ -492,9 +535,10 @@ export function handleSubregistryTransferBatch(event: SubTransferBatch): void {
       event.address,
       event.params.to,
       event.params.ids[i],
-      event.transaction.hash,
       event.block.number,
       event.logIndex,
+      event.transaction.hash,
+      "-" + i.toString(),
     );
   }
 }

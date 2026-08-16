@@ -1,8 +1,14 @@
 // Repro: subname registration through a dynamically linked subregistry must
 // produce the ENSIP-1 namehash of the full name.
 
-import { describe, test, assert, newMockEvent } from "matchstick-as/assembly/index";
-import { Address, BigInt, ByteArray, Bytes, crypto, ethereum } from "@graphprotocol/graph-ts";
+import {
+  clearStore,
+  describe,
+  test,
+  assert,
+  newMockEvent,
+} from "matchstick-as/assembly/index";
+import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 
 import {
   LabelRegistered as ETHLabelRegistered,
@@ -16,51 +22,43 @@ import {
   handleSubregistryUpdated,
   handleSubregistryLabelRegistered,
 } from "../src/registry";
-import { byteArrayFromHex, concat, ETH_NODE } from "../src/utils";
+import { keccakStr, namehashOf, subnodeOf } from "./registry.test";
 
-const ETH_REGISTRY = "0x36c02da8a0983159322a80ffe9f24b1acff8b570";
-const REGISTRAR = "0x36b58f5c1969b7b6591d752ea6f5486d069010ab";
+// devnet-era deployment addresses (this repro mirrors a devnet fixture; the
+// anchor math only needs self-consistent addresses, not the sepolia pins)
+const DEVNET_ETH_REGISTRY = "0x36c02da8a0983159322a80ffe9f24b1acff8b570";
+const DEVNET_REGISTRAR = "0x36b58f5c1969b7b6591d752ea6f5486d069010ab";
 const OWNER = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
 const SUBREGISTRY = "0x12e783C0FbbFD07143E9d4B90173a1F6C0990FF5";
 
-function keccakStr(s: string): ByteArray {
-  return crypto.keccak256(ByteArray.fromUTF8(s));
-}
-
-function nh(parentHex: string, label: string): string {
-  return crypto
-    .keccak256(concat(byteArrayFromHex(parentHex.slice(2)), keccakStr(label)))
-    .toHexString();
-}
-
 const TS = 1780000000;
+const ONE_DAY = 86400;
 
-function labelRegisteredETH(tokenId: i64, label: string): ETHLabelRegistered {
+function ethLabelRegisteredEvent(tokenId: i32, label: string): ETHLabelRegistered {
   let event = changetype<ETHLabelRegistered>(newMockEvent());
   event.block.timestamp = BigInt.fromI64(TS);
-  event.address = Address.fromString(ETH_REGISTRY);
+  event.address = Address.fromString(DEVNET_ETH_REGISTRY);
   event.parameters = new Array();
-  event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI64(tokenId))));
+  event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(tokenId))));
   event.parameters.push(new ethereum.EventParam("labelHash", ethereum.Value.fromFixedBytes(Bytes.fromByteArray(keccakStr(label)))));
   event.parameters.push(new ethereum.EventParam("label", ethereum.Value.fromString(label)));
   event.parameters.push(new ethereum.EventParam("owner", ethereum.Value.fromAddress(Address.fromString(OWNER))));
-  event.parameters.push(new ethereum.EventParam("expiry", ethereum.Value.fromUnsignedBigInt(BigInt.fromI64(TS + 28 * 86400))));
-  event.parameters.push(new ethereum.EventParam("sender", ethereum.Value.fromAddress(Address.fromString(REGISTRAR))));
+  event.parameters.push(new ethereum.EventParam("expiry", ethereum.Value.fromUnsignedBigInt(BigInt.fromI64(TS + 28 * ONE_DAY))));
+  event.parameters.push(new ethereum.EventParam("sender", ethereum.Value.fromAddress(Address.fromString(DEVNET_REGISTRAR))));
   return event;
 }
 
-function subregistryUpdated(tokenId: i64, sub: string): SubregistryUpdated {
+function subregistryUpdatedEvent(tokenId: i32, sub: string): SubregistryUpdated {
   let event = changetype<SubregistryUpdated>(newMockEvent());
   event.block.timestamp = BigInt.fromI64(TS);
-  event.address = Address.fromString(ETH_REGISTRY);
+  event.address = Address.fromString(DEVNET_ETH_REGISTRY);
   event.parameters = new Array();
-  event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI64(tokenId))));
+  event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(tokenId))));
   event.parameters.push(new ethereum.EventParam("subregistry", ethereum.Value.fromAddress(Address.fromString(sub))));
   event.parameters.push(new ethereum.EventParam("sender", ethereum.Value.fromAddress(Address.fromString(OWNER))));
   return event;
 }
 
-// v2-style subname tokenId: labelHash with a version suffix in the low bytes
 function subLabelRegistered(label: string, tokenIdHex: string): SubLabelRegistered {
   let event = changetype<SubLabelRegistered>(newMockEvent());
   event.block.timestamp = BigInt.fromI64(TS);
@@ -77,21 +75,19 @@ function subLabelRegistered(label: string, tokenIdHex: string): SubLabelRegister
 
 describe("subname through subregistry", () => {
   test("sub.unregistered.eth lands on its ENSIP-1 namehash", () => {
-    // real devnet values
-    const T_UNREG = "0x64d13a8d09a1a75586d3687b64c5c76f5358aae9eb1f8f6fca63c68a02bfc800"; // placeholder; replaced below by real topic
-    void T_UNREG;
+    clearStore();
 
-    handleLabelRegistered(labelRegisteredETH(45365345383263673131329035681400107173894574979410367037783032753372163735552 % 1000000, "unregistered"));
-    // ^ tokenId shrunk for i64 safety; anchor + node math is what matters
-    handleSubregistryUpdated(subregistryUpdated(45365345383263673131329035681400107173894574979410367037783032753372163735552 % 1000000, SUBREGISTRY));
+    handleLabelRegistered(ethLabelRegisteredEvent(1, "unregistered"));
+    handleSubregistryUpdated(subregistryUpdatedEvent(1, SUBREGISTRY));
 
-    // subname labelHash from chain: keccak("sub")
+    // subname labelHash from chain: keccak("sub") in the high bytes with a
+    // version suffix in the low bytes (v2-style subname tokenId)
     handleSubregistryLabelRegistered(
       subLabelRegistered("sub", "0xfa1ea47215815692a5f1391cff19abbaf694c82fb2151a4c351b6c0e00000000"),
     );
 
-    const unregNode = nh(ETH_NODE, "unregistered");
-    const expected = nh(unregNode, "sub");
+    const unregNode = namehashOf("unregistered");
+    const expected = subnodeOf(unregNode, keccakStr("sub"));
     assert.fieldEquals("Domain", expected, "name", "sub.unregistered.eth");
     assert.fieldEquals("Domain", expected, "parent", unregNode);
   });

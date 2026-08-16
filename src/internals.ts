@@ -10,7 +10,6 @@ import { Address, BigInt, ByteArray, Bytes, crypto } from "@graphprotocol/graph-
 import { _RegistryAnchor, _TokenId, Domain } from "../generated/schema";
 import {
   byteArrayFromHex,
-  concat,
   createOrLoadAccount,
   EMPTY_ADDRESS,
   ETH_NODE,
@@ -62,15 +61,20 @@ export function saveTokenId(registry: Address, tokenId: BigInt, node: string): v
   t.save();
 }
 
-export function loadNodeForToken(registry: Address, tokenId: BigInt): string {
+// Returns null when no mapping exists yet (the single miss convention in
+// this module — callers null-check).
+export function loadNodeForToken(registry: Address, tokenId: BigInt): string | null {
   let t = _TokenId.load(tokenIdKey(registry, tokenId));
-  return t == null ? "" : t.node;
+  return t == null ? null : t.node;
 }
 
 // Anchor a subregistry under the node of the parent label it was linked to.
 export function anchorSubregistry(subregistry: Address, parentNode: string): void {
-  if (subregistry.toHexString() == "0x0000000000000000000000000000000000000000") {
-    return; // unlink
+  // The zero address signals an unlink intent, but SubregistryUpdated carries
+  // no previous address, so a true unlink isn't derivable from this event;
+  // the existing anchor is kept (divergence ledger).
+  if (subregistry == Address.zero()) {
+    return;
   }
   let anchor = _RegistryAnchor.load(subregistry);
   if (anchor == null) {
@@ -78,8 +82,7 @@ export function anchorSubregistry(subregistry: Address, parentNode: string): voi
   }
   anchor.parentNode = Bytes.fromByteArray(byteArrayFromHex(parentNode.slice(2)));
   let parent = Domain.load(parentNode);
-  let parentName = parent != null && parent.name != null ? parent.name : "";
-  anchor.parentName = parentName == null ? "" : parentName!;
+  anchor.parentName = parent != null && parent.name != null ? parent.name! : "";
   anchor.save();
 }
 

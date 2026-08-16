@@ -11,7 +11,7 @@
 // Event ordering per ENSv2 docs: registry events (LabelRegistered, mint
 // TransferSingle) fire before the registrar's NameRegistered.
 
-import { BigInt, ByteArray, crypto } from "@graphprotocol/graph-ts";
+import { ByteArray, crypto, log } from "@graphprotocol/graph-ts";
 import {
   NameRegistered,
   NameRenewed,
@@ -25,22 +25,22 @@ import {
 import {
   byteArrayFromHex,
   checkValidLabel,
-  concat,
   createEventID,
   createOrLoadAccount,
   ETH_NODE,
+  GRACE_PERIOD_SECONDS,
+  subnodeHash,
 } from "./utils";
-
-const GRACE_PERIOD_SECONDS = BigInt.fromI32(7776000); // 90 days (v1 constant)
 
 function labelHashOf(label: string): ByteArray {
   return crypto.keccak256(ByteArray.fromUTF8(label));
 }
 
 function nodeOf(labelHash: ByteArray): string {
-  return crypto
-    .keccak256(concat(byteArrayFromHex(ETH_NODE.slice(2)), labelHash))
-    .toHexString();
+  return subnodeHash(
+    byteArrayFromHex(ETH_NODE.slice(2)),
+    labelHash,
+  ).toHexString();
 }
 
 export function handleRegistrarNameRegistered(event: NameRegistered): void {
@@ -93,6 +93,7 @@ export function handleRegistrarNameRenewed(event: NameRenewed): void {
 
   const registration = Registration.load(labelHashHex);
   if (registration == null) {
+    log.warning("NameRenewed for unknown registration {}", [labelHashHex]);
     return;
   }
   registration.expiryDate = event.params.newExpiry;

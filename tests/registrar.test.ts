@@ -1,12 +1,14 @@
 // M3 unit tests: ENSv2 ETHRegistrar events -> v1 schema Registration.
 
-import { describe, test, assert, newMockEvent } from "matchstick-as/assembly/index";
-import { Address, BigInt, ByteArray, Bytes, crypto, ethereum } from "@graphprotocol/graph-ts";
-
 import {
-  LabelRegistered as ETHLabelRegistered,
-  TransferSingle,
-} from "../generated/ETHRegistry/PermissionedRegistry";
+  clearStore,
+  describe,
+  test,
+  assert,
+  newMockEvent,
+} from "matchstick-as/assembly/index";
+import { Address, BigInt, ByteArray, Bytes, ethereum } from "@graphprotocol/graph-ts";
+
 import {
   NameRegistered,
   NameRenewed,
@@ -16,37 +18,19 @@ import {
   handleRegistrarNameRegistered,
   handleRegistrarNameRenewed,
 } from "../src/registrar";
-import { byteArrayFromHex, concat, ETH_NODE } from "../src/utils";
+import { GRACE_PERIOD_SECONDS } from "../src/utils";
+import {
+  labelRegisteredEvent,
+  namehashOf,
+  keccakStr,
+  transferSingleEvent,
+  ETH_REGISTRY,
+  REGISTRAR,
+  OWNER,
+  OWNER2,
+} from "./registry.test";
 
-const ETH_REGISTRY = "0xDEDB92913A25abE1f7BCDD85D8A344a43B398B67";
-const REGISTRAR = "0x8c2E866B439358c41AE05De9cbE8A00BFEFafFcA";
-const OWNER = "0x0000000000000000000000000000000000000001";
-const OWNER2 = "0x0000000000000000000000000000000000000002";
 const USDC = "0xBA11ebdB3f9a2c5946D8629517f06364E53A2E10";
-
-function keccakStr(s: string): ByteArray {
-  return crypto.keccak256(ByteArray.fromUTF8(s));
-}
-
-function namehashOf(label: string): string {
-  return crypto
-    .keccak256(concat(byteArrayFromHex(ETH_NODE.slice(2)), keccakStr(label)))
-    .toHexString();
-}
-
-function labelRegisteredEvent(tokenId: i32, label: string, owner: string, expiry: i64): ETHLabelRegistered {
-  let event = changetype<ETHLabelRegistered>(newMockEvent());
-  event.block.timestamp = BigInt.fromI64(REG_TS);
-  event.address = Address.fromString(ETH_REGISTRY);
-  event.parameters = new Array();
-  event.parameters.push(new ethereum.EventParam("tokenId", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(tokenId))));
-  event.parameters.push(new ethereum.EventParam("labelHash", ethereum.Value.fromFixedBytes(Bytes.fromByteArray(keccakStr(label)))));
-  event.parameters.push(new ethereum.EventParam("label", ethereum.Value.fromString(label)));
-  event.parameters.push(new ethereum.EventParam("owner", ethereum.Value.fromAddress(Address.fromString(owner))));
-  event.parameters.push(new ethereum.EventParam("expiry", ethereum.Value.fromUnsignedBigInt(BigInt.fromI64(expiry))));
-  event.parameters.push(new ethereum.EventParam("sender", ethereum.Value.fromAddress(Address.fromString(REGISTRAR))));
-  return event;
-}
 
 function registrarNameRegisteredEvent(label: string, owner: string, duration: i64, base: i64): NameRegistered {
   let event = changetype<NameRegistered>(newMockEvent());
@@ -81,27 +65,19 @@ function registrarNameRenewedEvent(label: string, newExpiryTs: i64): NameRenewed
   return event;
 }
 
-function transferSingleEvent(to: string, tokenId: i32): TransferSingle {
-  let event = changetype<TransferSingle>(newMockEvent());
-  event.address = Address.fromString(ETH_REGISTRY);
-  event.parameters = new Array();
-  event.parameters.push(new ethereum.EventParam("operator", ethereum.Value.fromAddress(Address.fromString(OWNER))));
-  event.parameters.push(new ethereum.EventParam("from", ethereum.Value.fromAddress(Address.fromString(OWNER))));
-  event.parameters.push(new ethereum.EventParam("to", ethereum.Value.fromAddress(Address.fromString(to))));
-  event.parameters.push(new ethereum.EventParam("id", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(tokenId))));
-  event.parameters.push(new ethereum.EventParam("value", ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(1))));
-  return event;
-}
-
 const REG_TS = 1780000000; // registration block timestamp base
-const GRACE = 7776000; // 90 days, v1 constant
+// v1 grace semantics come from the production constant (no local copy)
+function withGrace(ts: i64): string {
+  return BigInt.fromI64(ts).plus(GRACE_PERIOD_SECONDS).toString();
+}
 
 describe("registrar: NameRegistered", () => {
   test("creates Registration with v1 semantics incl. grace period on domain", () => {
+    clearStore();
     const label = "regtest";
     const expiryTs = REG_TS + 31536000; // 1 year
     // registry LabelRegistered fires first in the same tx
-    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, expiryTs));
+    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, expiryTs, REGISTRAR, ETH_REGISTRY));
     // then the registrar's NameRegistered
     handleRegistrarNameRegistered(registrarNameRegisteredEvent(label, OWNER, 31536000, 5000000));
 
@@ -115,7 +91,7 @@ describe("registrar: NameRegistered", () => {
     assert.fieldEquals("Registration", labelHash, "expiryDate", expiryTs.toString());
 
     // v1: domain.expiryDate includes the 90-day grace period
-    assert.fieldEquals("Domain", node, "expiryDate", (expiryTs + GRACE).toString());
+    assert.fieldEquals("Domain", node, "expiryDate", withGrace(expiryTs));
     assert.fieldEquals("Domain", node, "registrant", OWNER);
 
     assert.entityCount("NameRegistered", 1);
@@ -124,8 +100,9 @@ describe("registrar: NameRegistered", () => {
 
 describe("registrar: NameRenewed", () => {
   test("extends registration and domain expiry (+grace)", () => {
+    clearStore();
     const label = "regtest";
-    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, REG_TS + 31536000));
+    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, REG_TS + 31536000, REGISTRAR, ETH_REGISTRY));
     handleRegistrarNameRegistered(registrarNameRegisteredEvent(label, OWNER, 31536000, 5000000));
 
     const newExpiry = REG_TS + 2 * 31536000;
@@ -133,18 +110,19 @@ describe("registrar: NameRenewed", () => {
 
     const labelHash = keccakStr(label).toHexString();
     assert.fieldEquals("Registration", labelHash, "expiryDate", newExpiry.toString());
-    assert.fieldEquals("Domain", namehashOf(label), "expiryDate", (newExpiry + GRACE).toString());
+    assert.fieldEquals("Domain", namehashOf(label), "expiryDate", withGrace(newExpiry));
     assert.entityCount("NameRenewed", 1);
   });
 });
 
 describe("registrar: token transfer syncs registrant", () => {
   test("ERC1155 transfer updates Registration.registrant + NameTransferred", () => {
+    clearStore();
     const label = "regtest";
-    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, REG_TS + 31536000));
+    handleLabelRegistered(labelRegisteredEvent(7, label, OWNER, REG_TS + 31536000, REGISTRAR, ETH_REGISTRY));
     handleRegistrarNameRegistered(registrarNameRegisteredEvent(label, OWNER, 31536000, 5000000));
 
-    handleTransferSingle(transferSingleEvent(OWNER2, 7));
+    handleTransferSingle(transferSingleEvent(OWNER, OWNER2, 7, ETH_REGISTRY));
 
     const labelHash = keccakStr(label).toHexString();
     assert.fieldEquals("Registration", labelHash, "registrant", OWNER2);

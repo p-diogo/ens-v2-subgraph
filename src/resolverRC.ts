@@ -9,7 +9,7 @@
 // resolution-time only; we index stored state, per the official indexing doc).
 // Cleared maps onto v1's VersionChanged clearing semantics (version 0).
 
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   ABIUpdated,
   AddressUpdated,
@@ -27,52 +27,35 @@ import {
   InterfaceChanged as InterfaceChangedEntity,
   MulticoinAddrChanged,
   NameChanged as NameChangedEntity,
-  Resolver,
   TextChanged as TextChangedEntity,
   VersionChanged as VersionChangedEntity,
 } from "../generated/schema";
-import { createEventID, createOrLoadAccount } from "./utils";
+import {
+  clearResolverRecords,
+  createEventID,
+  createOrLoadAccount,
+  createOrLoadResolver,
+  resolverId,
+  trackCoinType,
+  trackTextKey,
+} from "./utils";
 
 const COIN_TYPE_ETH = 60;
 
-function recordNode(recordId: BigInt): string {
+// exported for unit tests (conversion semantics only)
+export function recordNode(recordId: BigInt): string {
   // uint256 recordId -> 32-byte node hex (Bytes round-trip keeps the width)
   let hex = recordId.toHexString().slice(2).padStart(64, "0");
   return Bytes.fromHexString(hex).toHexString();
 }
 
-// exported for unit tests (conversion semantics only)
-export function recordNodeForTest(recordId: BigInt): string {
-  return recordNode(recordId);
-}
-
-function getOrCreateResolver(node: string, address: Address): Resolver {
-  let id = address.toHexString() + "-" + node;
-  let resolver = Resolver.load(id);
-  if (resolver == null) {
-    resolver = new Resolver(id);
-    resolver.domain = node;
-    resolver.address = address;
-    resolver.save();
-  }
-  return resolver!;
-}
-
 export function handleRCAddressUpdated(event: AddressUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = getOrCreateResolver(node, event.address);
+  let resolver = createOrLoadResolver(event.address, node, true);
 
   const coinType = event.params.coinType;
-  if (resolver.coinTypes == null) {
-    resolver.coinTypes = [coinType];
+  if (trackCoinType(resolver, coinType)) {
     resolver.save();
-  } else {
-    let coinTypes = resolver.coinTypes!;
-    if (!coinTypes.includes(coinType)) {
-      coinTypes.push(coinType);
-      resolver.coinTypes = coinTypes;
-      resolver.save();
-    }
   }
 
   const isEthAddr =
@@ -94,12 +77,12 @@ export function handleRCAddressUpdated(event: AddressUpdated): void {
       domain.save();
     }
 
-    let ev = new AddrChangedEntity(createEventID(event.block.number, event.logIndex));
-    ev.resolver = resolver.id;
-    ev.blockNumber = event.block.number.toI32();
-    ev.transactionID = event.transaction.hash;
-    ev.addr = addrHex;
-    ev.save();
+    let resolverEvent = new AddrChangedEntity(createEventID(event.block.number, event.logIndex));
+    resolverEvent.resolver = resolver.id;
+    resolverEvent.blockNumber = event.block.number.toI32();
+    resolverEvent.transactionID = event.transaction.hash;
+    resolverEvent.addr = addrHex;
+    resolverEvent.save();
   } else {
     let resolverEvent = new MulticoinAddrChanged(createEventID(event.block.number, event.logIndex));
     resolverEvent.resolver = resolver.id;
@@ -113,19 +96,11 @@ export function handleRCAddressUpdated(event: AddressUpdated): void {
 
 export function handleRCTextUpdated(event: TextUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = getOrCreateResolver(node, event.address);
+  let resolver = createOrLoadResolver(event.address, node, true);
 
   const key = event.params.key;
-  if (resolver.texts == null) {
-    resolver.texts = [key];
+  if (trackTextKey(resolver, key)) {
     resolver.save();
-  } else {
-    let texts = resolver.texts!;
-    if (!texts.includes(key)) {
-      texts.push(key);
-      resolver.texts = texts;
-      resolver.save();
-    }
   }
 
   let resolverEvent = new TextChangedEntity(createEventID(event.block.number, event.logIndex));
@@ -139,7 +114,7 @@ export function handleRCTextUpdated(event: TextUpdated): void {
 
 export function handleRCContenthashUpdated(event: ContenthashUpdated): void {
   const node = recordNode(event.params.recordId);
-  let resolver = getOrCreateResolver(node, event.address);
+  let resolver = createOrLoadResolver(event.address, node, true);
   resolver.contentHash = event.params.hash;
   resolver.save();
 
@@ -153,7 +128,7 @@ export function handleRCContenthashUpdated(event: ContenthashUpdated): void {
 
 export function handleRCABIUpdated(event: ABIUpdated): void {
   const node = recordNode(event.params.recordId);
-  const resolver = getOrCreateResolver(node, event.address);
+  const resolver = createOrLoadResolver(event.address, node, true);
 
   let resolverEvent = new AbiChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -165,7 +140,7 @@ export function handleRCABIUpdated(event: ABIUpdated): void {
 
 export function handleRCInterfaceUpdated(event: InterfaceUpdated): void {
   const node = recordNode(event.params.recordId);
-  const resolver = getOrCreateResolver(node, event.address);
+  const resolver = createOrLoadResolver(event.address, node, true);
 
   let resolverEvent = new InterfaceChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -177,9 +152,14 @@ export function handleRCInterfaceUpdated(event: InterfaceUpdated): void {
 }
 
 export function handleRCNameUpdated(event: NameUpdated): void {
-  if (event.params.primaryName.indexOf("\u0000") != -1) return;
+  if (event.params.primaryName.indexOf("\u0000") != -1) {
+    log.warning("NameUpdated contained null byte on resolver {}, skipping", [
+      event.address.toHexString(),
+    ]);
+    return;
+  }
   const node = recordNode(event.params.recordId);
-  const resolver = getOrCreateResolver(node, event.address);
+  const resolver = createOrLoadResolver(event.address, node, true);
 
   let resolverEvent = new NameChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.resolver = resolver.id;
@@ -192,24 +172,20 @@ export function handleRCNameUpdated(event: NameUpdated): void {
 // Cleared = all records for the node wiped: v1's VersionChanged semantics.
 export function handleRCCleared(event: Cleared): void {
   const node = recordNode(event.params.recordId);
+  const id = resolverId(event.address, node);
 
   let resolverEvent = new VersionChangedEntity(createEventID(event.block.number, event.logIndex));
   resolverEvent.blockNumber = event.block.number.toI32();
   resolverEvent.transactionID = event.transaction.hash;
-  resolverEvent.resolver = event.address.toHexString() + "-" + node;
+  resolverEvent.resolver = id;
   resolverEvent.version = BigInt.fromI32(0);
   resolverEvent.save();
 
   let domain = Domain.load(node);
-  if (domain != null && domain.resolver == resolverEvent.resolver) {
+  if (domain != null && domain.resolver == id) {
     domain.resolvedAddress = null;
     domain.save();
   }
 
-  let resolver = getOrCreateResolver(node, event.address);
-  resolver.addr = null;
-  resolver.contentHash = null;
-  resolver.texts = null;
-  resolver.coinTypes = null;
-  resolver.save();
+  clearResolverRecords(createOrLoadResolver(event.address, node, true));
 }
