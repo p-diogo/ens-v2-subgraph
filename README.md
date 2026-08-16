@@ -24,11 +24,15 @@ npm install
 bash scripts/dev.sh            # builds + runs gnd on :8000
 # -> http://localhost:8000/subgraphs/name/subgraph-0
 
-# unit tests (matchstick)
+# unit tests (matchstick, 62 tests incl. both resolver generations)
 npm run test                   # = graph test
 
-# schema contract tests (needs gnd from dev.sh running)
-npm run test:schema
+# harness suites (node-side)
+npm run typecheck              # tsc over harness/ (strict)
+npm run test:schema            # L0 schema byte-diff + corpus (needs gnd from dev.sh)
+npm run test:pins              # src/utils.ts controller pins == networks.json
+
+# other package scripts: codegen, build (graph build), deploy:studio
 
 # L2 e2e on a local anvil devnet with real ENSv2 contracts
 bash scripts/e2e-chain.sh up   # devnet :8545 + gnd :8001 (needs :8000 free)
@@ -56,8 +60,8 @@ src/resolverRC.ts      RC SharedResolver recordId-keyed events -> Resolver
 src/factory.ts         VerifiableFactory ProxyDeployed -> template pre-spawn
 src/internals.ts       _RegistryAnchor / _TokenId / root+eth seeding
 tests/*.test.ts        matchstick unit tests (red-green per handler)
-harness/               node-side test suites (schema, e2e, parity)
-scripts/               dev.sh, e2e-chain.sh, gen-devnet-networks.py
+harness/               node-side suites + shared lib (schema, e2e, parity, pins)
+scripts/               dev.sh, e2e-chain.sh, gen-devnet-networks.py, rainbow-mock.cjs
 docs/PLAN.md           the approved plan (context, decisions, timeline)
 docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
 .reference/            ens-subgraph + contracts-v2 clones (gitignored)
@@ -67,6 +71,9 @@ docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
 
 1. Update `networks.json` `sepolia` addresses/startBlocks from the new
    deployment (Etherscan first-tx or the contracts repo's addresses doc).
+   ALSO re-pin the `LOCKED/UNLOCKED_MIGRATION_CONTROLLER` constants in
+   `src/utils.ts` (graph-ts cannot read networks.json at runtime);
+   `npm run test:pins` fails until the two match again.
 2. `npx graph build` — addresses in `subgraph.yaml` must match networks.json
    (they are hardcoded; graph-cli 0.98's `--network` write-back makes
    mustache templates unusable).
@@ -103,7 +110,9 @@ docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
 ## Status
 
 Milestones M0–M7 of `docs/PLAN.md` are complete: schema contract enforced,
-all handlers unit-tested, live-Sepolia indexing verified with on-chain
-parity, and both the live and RC contract generations proven on real local
-devnets. Next milestone (separate session): the graph-client/Cloudflare-Worker
+unit coverage across every handler family (registry incl. TransferBatch/
+TokenRegenerated/Root flows, registrar, both resolver generations — the five
+manifest-mandated no-op handlers have nothing to test by design, see
+DIVERGENCES G2), live-Sepolia indexing verified with on-chain parity, and
+both the live and RC contract generations proven on real local devnets. Next milestone (separate session): the graph-client/Cloudflare-Worker
 proxy composing v1+v2 subgraphs into one virtual interface.

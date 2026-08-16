@@ -32,7 +32,7 @@ entities) or covered by an entry below. The parity harness
 |---|---|---|
 | G1 | Records set on a resolver/registry deployed OUTSIDE VerifiableFactory before its first linking event are missed | Canonical beta flows unaffected (all discovery goes through `ResolverUpdated`/`SubregistryUpdated`) |
 | G2 | `DataChanged`/`DataUpdated`, `ApprovalUpdated`, `Named*Resource`, `LabelReserved`, `EACRolesChanged`, `TokenResource`, `ParentUpdated`, `URI*` are not indexed | No v1 entity exists for any of them |
-| G3 | `TransferBatch` shares a single event id per log; each id still yields one `Transfer` entity per token | Matches v1 one-entity-per-transfer; ids are per-log, not per-token (v1-identical shape) |
+| G3 | `TransferBatch` items share one log, so their event-entity ids carry a per-item index suffix (`blockNumber-logIndex-i`); single `TransferSingle`s keep the v1 `blockNumber-logIndex` id shape | Without the suffix, graph-node's id upsert would collapse a batch's N `Transfer`/`NameTransferred` entities to 1 (regression-tested in tests/registry.test.ts) |
 
 ## Oracle notes
 

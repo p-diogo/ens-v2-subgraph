@@ -1,5 +1,5 @@
 // L3 parity: self-hosted ENSNode (Namehash ENSIndexer) as the behavioral
-// oracle, v3 — against the unigraph CORE tables.
+// oracle, v4 — against the unigraph CORE tables.
 //
 // Key discovery from v1/v2 of this harness: ENSIndexer's `subgraph` plugin
 // never materializes ENSv2 names (their hosted v2-sepolia /subgraph API is
@@ -20,43 +20,42 @@
 // Unreachable oracle fails the run unless ENSNODE_OPTIONAL=1.
 
 import { execFileSync } from 'node:child_process'
+import { createChecker, ETH_NODE, gql, type DomainRow } from './lib'
 
-const GND = process.env.GND_GRAPHQL ?? 'http://localhost:8000/subgraphs/name/subgraph-0'
+const BETA_REGISTRAR = '0x8c2e866b439358c41ae05De9cbE8A00BFEFafFcA'
+// psql output buffer headroom for wide oracle result sets
+const MAX_BUFFER_BYTES = 64 * 1024 * 1024
 
-const ETH_NODE = '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae'
-const BETA_REGISTRAR = '0x8c2e866b439358c41ae05de9cbe8a00bfefaffca'
-
-let failures: string[] = []
-function check(name: string, ok: boolean, detail?: string) {
-  if (ok) console.log(`  ✓ ${name}`)
-  else {
-    console.error(`  ✖ ${name}${detail ? ` ${detail}` : ''}`)
-    failures.push(name)
-  }
+interface DomainWithReg extends DomainRow {}
+interface DomainsReply {
+  domains: DomainWithReg[] | null
 }
-
-async function gql<T = any>(query: string): Promise<T> {
-  const res = await fetch(GND, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  })
-  const body = (await res.json()) as { data?: T; errors?: any[] }
-  if (body.errors) throw new Error(JSON.stringify(body.errors).slice(0, 300))
-  return body.data as T
+interface MetaReply {
+  _meta: { hasIndexingErrors: boolean; block: { number: number } }
 }
+type OracleRow = [
+  labelHash: string,
+  canonicalName: string,
+  ownerId: string,
+  interpretedLabel: string,
+  start: string,
+  expiry: string,
+  gracePeriod: string,
+  registrantId: string,
+]
 
 function psql(sql: string): string[][] {
   const out = execFileSync(
     'docker',
     ['exec', 'ensindexer-pg', 'psql', '-U', 'postgres', '-d', 'postgres', '-At', '-c', sql],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    { encoding: 'utf8', maxBuffer: MAX_BUFFER_BYTES },
   ).trim()
   if (!out) return []
   return out.split('\n').map((line) => line.split('|'))
 }
 
-async function main() {
+async function main(): Promise<void> {
+  const check = createChecker()
   console.log('L3 ENSNode parity (self-hosted ENSIndexer, unigraph core tables)\n')
 
   // oracle reachability
@@ -72,16 +71,16 @@ async function main() {
     process.exit(1)
   }
 
-  const ours = await gql(`{
+  const ours = await gql<DomainsReply>(`{
     domains(first: 100, where: { parent: "${ETH_NODE}" }) {
       id name labelhash labelName owner { id } registrant { id }
       registration { registrationDate expiryDate labelName }
     }
   }`)
-  const oursList: any[] = ours.domains ?? []
-  console.log(`  (our .eth 2LDs: ${oursList.length})`)
+  const oursList = ours.domains ?? []
+  check.info(`(our .eth 2LDs: ${oursList.length})`)
 
-  const ids = oursList.map((d) => "'" + d.labelhash.toLowerCase() + "'").join(',')
+  const ids = oursList.map((d: DomainRow) => "'" + d.labelhash.toLowerCase() + "'").join(',')
   const rows = psql(
     `SELECT d.label_hash, coalesce(d.canonical_name,''), coalesce(d.owner_id,''), ` +
       `coalesce(l.interpreted,''), r.start::text, r.expiry::text, ` +
@@ -95,8 +94,8 @@ async function main() {
       `  ORDER BY r2.registration_index DESC LIMIT 1) r ON true ` +
       `WHERE lower(d.label_hash) IN (${ids}) AND d.registry_id = '11155111-0xdedb92913a25abe1f7bcdd85d8a344a43b398b67'`,
   )
-  const theirs = new Map(rows.map((r) => [r[0].toLowerCase(), r]))
-  console.log(`  (oracle rows matched by labelhash: ${rows.length})`)
+  const theirs = new Map<string, OracleRow>(rows.map((r: string[]) => [r[0].toLowerCase(), r as OracleRow]))
+  check.info(`(oracle rows matched by labelhash: ${rows.length})`)
 
   for (const d of oursList) {
     const t = theirs.get((d.labelhash ?? '').toLowerCase())
@@ -127,18 +126,14 @@ async function main() {
         `WHERE r.registrar_address = '${BETA_REGISTRAR}'`,
     ).map((r) => r[0]),
   )
-  const oursNames = new Set(oursList.map((d) => d.name))
+  const oursNames = new Set(oursList.map((d: DomainRow) => d.name))
   const extra = [...oracleNames].filter((n) => n && n.endsWith('.eth') && !oursNames.has(n))
-  console.log(`  (oracle beta-registrar registrations: ${oracleNames.size}; ours: ${oursList.size})`)
+  check.info(`(oracle beta-registrar registrations: ${oracleNames.size}; ours: ${oursList.length})`)
   for (const n of extra.slice(0, 12)) {
-    console.log(`  ℹ︎ oracle-only .eth 2LD (pre-beta June window, out of our scope): ${n}`)
+    check.info(`ℹ︎ oracle-only .eth 2LD (pre-beta June window, out of our scope): ${n}`)
   }
 
-  if (failures.length > 0) {
-    console.error(`\n${failures.length} failure(s)`)
-    process.exit(1)
-  }
-  console.log('\nall green')
+  check.report()
 }
 
 await main()

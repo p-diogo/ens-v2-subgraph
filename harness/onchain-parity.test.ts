@@ -1,40 +1,25 @@
 // L3 parity: on-chain verifier. For every .eth 2LD in the subgraph, compare
 // subgraph state against direct reads from the live ETHRegistry:
-//   getExpiry(label)  -> Registration.expiryDate (raw) and
+//   findExpiry(label) -> Registration.expiryDate (raw) and
 //                        Domain.expiryDate (expiry + 90d grace, v1 semantics)
-//   getTokenId(label) -> non-zero (the name exists)
 // Expired-name views are masked on-chain (getOwner etc. return zero), so owner
 // comparisons run only for names whose registration hasn't expired.
 //
 // Env: GND_GRAPHQL (default :8000), SEPOLIA_RPC (default Tenderly gateway).
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { createChecker, ETH_NODE, gql, GRACE_SECONDS, loadNetworks, type DomainRow } from './lib'
 
-const GND = process.env.GND_GRAPHQL ?? 'http://localhost:8000/subgraphs/name/subgraph-0'
 const RPC = process.env.SEPOLIA_RPC ?? 'https://gateway.tenderly.co/public/sepolia'
-const GRACE = 7776000n
+const ETH_REGISTRY = loadNetworks().sepolia.ETHRegistry.address
 
-const networks = JSON.parse(readFileSync(new URL('../networks.json', import.meta.url), 'utf8')) as any
-const ETH_REGISTRY = networks.sepolia.ETHRegistry.address
-
-let failures: string[] = []
-function check(name: string, ok: boolean, detail?: string) {
-  if (ok) console.log(`  ✓ ${name}`)
-  else {
-    console.error(`  ✖ ${name}${detail ? ` ${detail}` : ''}`)
-    failures.push(name)
-  }
+interface DomainsReply {
+  domains: Array<Pick<DomainRow, 'labelName' | 'labelhash' | 'expiryDate'> & {
+    owner: { id: string } | null
+    registration: { expiryDate: string } | null
+  }> | null
 }
-
-async function gql<T = any>(query: string): Promise<T> {
-  const res = await fetch(GND, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  })
-  const body = (await res.json()) as { data?: T; errors?: any[] }
-  if (body.errors) throw new Error(JSON.stringify(body.errors).slice(0, 300))
-  return body.data as T
+interface MetaReply {
+  _meta: { hasIndexingErrors: boolean; block: { number: number } }
 }
 
 function cast(args: string[]): string {
@@ -50,16 +35,16 @@ function call(fn: string, sig: string, arg: string): string | null {
   }
 }
 
-async function main() {
+async function main(): Promise<void> {
+  const check = createChecker()
   console.log('L3 on-chain parity (Sepolia beta vs ETHRegistry)\n')
 
-  const meta = await gql('{ _meta { hasIndexingErrors block { number } } }')
-  const head = Number(meta._meta.block.number)
+  const meta = await gql<MetaReply>('{ _meta { hasIndexingErrors block { number } } }')
   check('no indexing errors', meta._meta.hasIndexingErrors === false)
-  console.log(`  (subgraph head: ${head})`)
+  check.info(`(subgraph head: ${meta._meta.block.number})`)
 
-  const data = await gql(`{
-    domains(first: 100, where: { parent: "0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae" }) {
+  const data = await gql<DomainsReply>(`{
+    domains(first: 100, where: { parent: "${ETH_NODE}" }) {
       labelName
       labelhash
       expiryDate
@@ -67,8 +52,8 @@ async function main() {
       registration { expiryDate }
     }
   }`)
-  const domains: any[] = data.domains ?? []
-  console.log(`  (${domains.length} .eth 2LDs in the subgraph)`)
+  const domains = data.domains ?? []
+  check.info(`(${domains.length} .eth 2LDs in the subgraph)`)
 
   const nowTs = BigInt(Math.floor(Date.now() / 1000))
 
@@ -98,7 +83,7 @@ async function main() {
       )
     }
     const domainExpiry = BigInt(d.expiryDate)
-    const expectedDomain = chainExpiry > 0n ? chainExpiry + GRACE : chainExpiry
+    const expectedDomain = chainExpiry > 0n ? chainExpiry + BigInt(GRACE_SECONDS) : chainExpiry
     check(
       `${label}.eth Domain.expiryDate == getExpiry + 90d grace`,
       domainExpiry === expectedDomain,
@@ -110,11 +95,7 @@ async function main() {
     // reads are not comparable for lapsed names)
   }
 
-  if (failures.length > 0) {
-    console.error(`\n${failures.length} failure(s)`)
-    process.exit(1)
-  }
-  console.log('\nall green')
+  check.report()
 }
 
 await main()

@@ -50,6 +50,26 @@ def main() -> int:
     manifest = manifest.replace("network: sepolia", "network: devnet")
     (REPO / "subgraph.devnet.yaml").write_text(manifest)
     print("wrote subgraph.devnet.yaml (devnet addresses, startBlock 0)")
+
+    # The migration-controller constants in src/utils.ts are compiled into the
+    # mapping (graph-ts can't read config at runtime) and are NOT re-pinned for
+    # devnet by this script. That is fine ONLY because devnet has no migration
+    # flow (fresh registrations, isMigrated always false — pinned by
+    # tests/registry.test.ts). Fail loudly if that assumption breaks, so a
+    # devnet migration path can't be silently misclassified.
+    utils = (REPO / "src" / "utils.ts").read_text()
+    for name in ("LockedMigrationController", "UnlockedMigrationController"):
+        devnet_addr = devnet.get(name, {}).get("address", "").lower()
+        import re
+        m = re.search(rf'export const {name} = "(0x[0-9a-fA-F]{{40}})"', utils)
+        compiled = m.group(1).lower() if m else None
+        if compiled and compiled == sepolia.get(name, "").lower() and devnet_addr and devnet_addr != compiled:
+            print(
+                f"note: devnet {name} ({devnet_addr}) differs from the sepolia "
+                f"constant compiled into src/utils.ts ({compiled}); devnet has no "
+                "migration flow, so isMigrated stays false there by design",
+                file=sys.stderr,
+            )
     return 0
 
 

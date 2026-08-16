@@ -10,12 +10,14 @@
     "test": "graph test",
     "test:schema": "tsx harness/schema.test.ts",
     "dev": "bash scripts/dev.sh",
-    "typecheck": "tsc --noEmit",
-    "deploy:studio": "graph deploy ens-v-2-sepolia --version-label v0.1.0-sepolia-beta"
+    "typecheck": "tsc --noEmit -p tsconfig.harness.json",
+    "deploy:studio": "graph deploy ens-v-2-sepolia --version-label v0.1.0-sepolia-beta",
+    "test:pins": "tsx harness/pins.test.ts"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",
     "@graphprotocol/graph-ts": "^0.38.2",
+    "@types/node": "^26.2.0",
     "graphql": "^16.14.2",
     "js-sha3": "^0.13.0",
     "matchstick-as": "^0.6.0",
