@@ -391,6 +391,7 @@ function tokenRegeneratedCore(
   saveTokenId(registry, newTokenId, node!);
 }
 
+// not indexed: no v1-schema representation (divergence ledger G2)
 export function handleLabelReserved(event: LabelReserved): void {}
 export function handleLabelUnregistered(event: LabelUnregistered): void {
   labelUnregisteredCore(event.address, event.params.tokenId, event.block.timestamp);
@@ -414,7 +415,9 @@ export function handleResolverUpdated(event: ResolverUpdated): void {
 export function handleTokenRegenerated(event: TokenRegenerated): void {
   tokenRegeneratedCore(event.address, event.params.oldTokenId, event.params.newTokenId);
 }
+// not indexed: no v1-schema representation (divergence ledger G2)
 export function handleTokenResource(event: TokenResource): void {}
+// not indexed: no v1-schema representation (divergence ledger G2)
 export function handleRegistryCreated(event: RegistryCreated): void {}
 export function handleTransferSingle(event: TransferSingle): void {
   transferSingleCore(
@@ -440,6 +443,7 @@ export function handleTransferBatch(event: TransferBatch): void {
     );
   }
 }
+// not indexed: no v1-schema representation (divergence ledger G2)
 export function handleEACRolesChanged(event: EACRolesChanged): void {}
 export function handleRootLabelRegistered(event: RootLabelRegistered): void {
   ensureRootAndEthDomains(event.block.timestamp);
@@ -517,6 +521,7 @@ export function handleSubregistryResolverUpdated(event: SubResolverUpdated): voi
 export function handleSubregistryTokenRegenerated(event: SubTokenRegenerated): void {
   tokenRegeneratedCore(event.address, event.params.oldTokenId, event.params.newTokenId);
 }
+// not indexed: no v1-schema representation (divergence ledger G2)
 export function handleSubregistryTokenResource(event: SubTokenResource): void {}
 export function handleSubregistryTransferSingle(event: SubTransferSingle): void {
   transferSingleCore(
