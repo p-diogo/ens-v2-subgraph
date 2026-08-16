@@ -9,3 +9,6 @@ tests/parity/snapshots/
 .gnd-data/
 .gnd-devnet/
 subgraph.devnet.yaml
+
+.desloppify/
+.claude/
