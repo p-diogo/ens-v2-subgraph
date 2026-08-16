@@ -9,7 +9,7 @@
 // resolution-time only; we index stored state, per the official indexing doc).
 // Cleared maps onto v1's VersionChanged clearing semantics (version 0).
 
-import { Address, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   ABIUpdated,
   AddressUpdated,

@@ -33,7 +33,12 @@ export interface NetworksFile {
 }
 
 export function loadNetworks(): NetworksFile {
-  return JSON.parse(readFileSync(new URL('../networks.json', import.meta.url), 'utf8')) as NetworksFile
+  const raw = readFileSync(new URL('../networks.json', import.meta.url), 'utf8')
+  try {
+    return JSON.parse(raw) as NetworksFile
+  } catch (e) {
+    throw new Error(`networks.json is not valid JSON: ${(e as Error).message}`)
+  }
 }
 
 export async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
