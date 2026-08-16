@@ -75,11 +75,10 @@ export function handleLabelRegistered(event: ETHLabelRegistered): void {
   );
 }
 
-// v1's recurseDomainDelete: deletion is LOGICAL ONLY — no entity is removed;
-// empty domains persist (zero owner/resolver) while ancestor subdomainCounts
-// are decremented up the chain. Returns the surviving domain id (v1 shape;
-// callers ignore it).
-function recurseDomainDelete(domain: Domain): string | null {
+// v1's recurseDomainDelete (renamed for honesty): deletion is LOGICAL ONLY —
+// no entity is removed; empty domains persist (zero owner/resolver) while
+// ancestor subdomainCounts are decremented up the chain.
+function pruneEmptyAncestorCounts(domain: Domain): void {
   if (
     (domain.resolver == null ||
       domain.resolver!.split("-")[0] == EMPTY_ADDRESS) &&
@@ -87,21 +86,19 @@ function recurseDomainDelete(domain: Domain): string | null {
     domain.subdomainCount == 0
   ) {
     if (domain.parent == null) {
-      return null;
+      return;
     }
     const parentDomain = Domain.load(domain.parent!);
     if (parentDomain != null) {
       parentDomain.subdomainCount = parentDomain.subdomainCount - 1;
       parentDomain.save();
-      return recurseDomainDelete(parentDomain);
+      pruneEmptyAncestorCounts(parentDomain);
     }
-    return null;
   }
-  return domain.id;
 }
 
 function saveDomain(domain: Domain): void {
-  recurseDomainDelete(domain);
+  pruneEmptyAncestorCounts(domain);
   domain.save();
 }
 
