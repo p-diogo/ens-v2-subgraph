@@ -175,3 +175,20 @@ runs 11-13.
 
 Verdict: drift detected on the live branch; classification informational
 (test-file formatting only). Baseline updated to 7c6be3bb.
+
+## 2026-08-18T02:00Z (run 16) — RC BASE MOVED (informational, no adaptation needed)
+
+- post-audit-2 moved 80f6d90f -> 2c810c0b (first movement on the RC base):
+  a single commit, PR #414 "Add IPermissionedRegistry.getURI()" — a view
+  function on PermissionedRegistry + its interfaces. Zero event-declaration
+  changes, zero new deploy addresses -> class (c) informational (we index
+  events only; the function lands in the ABI at the next RC re-extract per
+  the runbook).
+- deploy/sepolia-migration-20260731 at 7c6be3bb (matches run 15's
+  classification — no new movement); feat/public-resolver and main
+  unchanged; branch count 54 (baseline); PRs quiet since Aug 17 11:29;
+  gist unchanged (2026-08-13 12:49); fleet still down.
+
+Verdict: drift detected on the RC base; classification informational
+(view-function addition, event surface unchanged). Baselines updated:
+post-audit-2 = 2c810c0b, live = 7c6be3bb.
