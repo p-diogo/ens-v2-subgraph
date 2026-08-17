@@ -113,10 +113,22 @@ AGENTS.md             instructions for coding agents (commands, hard rules, gotc
 
 An automated check runs every 6 hours against ENS's contracts repo (tracked
 branch heads, event-surface diffs, PRs, the breaking-changes gist, and the
-ENSNode fleet), classifies anything that moved, and implements the
-adaptation or opens an issue when it impacts us. Verdict history lives in
-`docs/DRIFT-LOG.md`; the shareable spec — including how to run the same
-check on any AI harness — is `docs/DRIFT-MONITORING.md`.
+ENSNode fleet) and classifies anything that moved. Verdict history lives in
+`docs/DRIFT-LOG.md`; the full spec is `docs/DRIFT-MONITORING.md`.
+
+**How it runs (harness-agnostic by design).** The check is a prompt plus
+repo-local state, so it is not tied to any single tool: it currently fires
+on ZCode's built-in scheduler, and the same prompt can be scheduled on any
+AI harness (Claude Code / Codex / Cursor scheduled tasks, or a headless CLI
+under plain cron) — the paste-ready prompt and per-harness recipes are in
+`docs/DRIFT-MONITORING.md` §4–5. A fired run is itself the implementation
+agent: unambiguous drift is adapted inline in that run (ABI re-extract via
+`forge inspect`, `subgraph.yaml` + handler updates, `npm run test` gate,
+build, commit, push), ambiguous changes become a GitHub issue with a
+proposed approach, and no-drift runs only append to the local log without
+committing. A scheduler that makes bare one-shot model calls (no tools)
+would degrade it to analysis-only — run it in an agentic session. Coding
+agents working in this repo should read `AGENTS.md`.
 
 ## Status
 
