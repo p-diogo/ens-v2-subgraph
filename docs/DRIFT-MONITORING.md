@@ -158,6 +158,19 @@ state (`docs/DRIFT-LOG.md` holds the history; the prompt holds the
 baselines). Anything that can (a) wake on a cron and (b) hand the prompt to
 an agent with shell + `gh` + `git` access to the repo can run it.
 
+**There is no separate spec-and-dispatch step, by design.** A fired run is
+itself the implementation agent: when the classification says "impacts us"
+and the adaptation is unambiguous, the *same run* re-extracts the ABI,
+edits `subgraph.yaml` + the handler, runs `npx graph test` as a gate,
+builds, commits, and pushes. The only path that emits a spec instead of
+code is the deliberate one for ambiguous/product-level changes (GitHub
+issue with context, proposed approach, acceptance criteria) — a spec for a
+human or a later session, not a dispatch queue. A scheduler that only
+performs a one-shot model call without tools would degrade this to
+analysis-only; use a harness/CLI mode that gives the run an agentic
+session (that is the default for the options below except the Actions
+fallback).
+
 - **ZCode (where it runs today):** the built-in scheduler
   (`CronCreate`) fires the prompt every 6h (`0 */6 * * *`). History and
   baselines live in the repo, so the automation itself is disposable —
