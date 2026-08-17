@@ -171,11 +171,11 @@ analysis-only; use a harness/CLI mode that gives the run an agentic
 session (that is the default for the options below except the Actions
 fallback).
 
-- **ZCode (where it runs today):** the built-in scheduler
-  (`CronCreate`) fires the prompt every 6h (`0 */6 * * *`). History and
-  baselines live in the repo, so the automation itself is disposable —
-  recreating it on another machine is just pasting the §4 prompt into that
-  harness's scheduler with the same cron.
+- **Any harness with a built-in scheduler** (scheduled tasks / cron
+  feature): create a task with cron `0 */6 * * *` whose prompt is the §4
+  text. History and baselines live in the repo, not in the scheduler, so
+  the automation is disposable — recreating it anywhere is just pasting the
+  §4 prompt into that harness's scheduler with the same cron.
 - **Claude Code / Codex / Cursor / any agent harness with scheduled
   prompts:** create a scheduled task with cron `0 */6 * * *` whose prompt is
   the §4 text. If the harness has no native scheduler, run it under plain

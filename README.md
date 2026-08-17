@@ -117,11 +117,10 @@ ENSNode fleet) and classifies anything that moved. Verdict history lives in
 `docs/DRIFT-LOG.md`; the full spec is `docs/DRIFT-MONITORING.md`.
 
 **How it runs (harness-agnostic by design).** The check is a prompt plus
-repo-local state, so it is not tied to any single tool: it currently fires
-on ZCode's built-in scheduler, and the same prompt can be scheduled on any
-AI harness (Claude Code / Codex / Cursor scheduled tasks, or a headless CLI
-under plain cron) — the paste-ready prompt and per-harness recipes are in
-`docs/DRIFT-MONITORING.md` §4–5. A fired run is itself the implementation
+repo-local state, so it is not tied to any single tool: schedule it on
+whatever AI harness you use (scheduled tasks / cron features, or a headless
+CLI under plain cron) — the paste-ready prompt and per-harness recipes are
+in `docs/DRIFT-MONITORING.md` §4–5. A fired run is itself the implementation
 agent: unambiguous drift is adapted inline in that run (ABI re-extract via
 `forge inspect`, `subgraph.yaml` + handler updates, `npm run test` gate,
 build, commit, push), ambiguous changes become a GitHub issue with a
