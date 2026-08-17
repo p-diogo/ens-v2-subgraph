@@ -64,6 +64,7 @@ harness/               node-side suites + shared lib (schema, e2e, parity, pins)
 scripts/               dev.sh, e2e-chain.sh, gen-devnet-networks.py, rainbow-mock.cjs
 docs/PLAN.md           the approved plan (context, decisions, timeline)
 docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
+docs/DRIFT-MONITORING.md shareable spec of the automated drift checks (run it on any harness)
 .reference/            ens-subgraph + contracts-v2 clones (gitignored)
 ```
 
