@@ -114,3 +114,49 @@ Verdict: no drift.
   still down.
 
 Verdict: no drift.
+
+## 2026-08-16T20:00Z (run 11)
+
+- No movement: tracked heads unchanged, branch count 54 (baseline), no PR
+  updates since Aug 15, gist unchanged (2026-08-13 12:49), fleet still down.
+  (First run on 6h cadence; per new policy, no commit for no-drift runs.)
+
+Verdict: no drift.
+
+## 2026-08-17T02:00Z (run 12)
+
+- No movement: tracked heads unchanged, branch count 54 (baseline), no PR
+  updates since Aug 15, gist unchanged (2026-08-13 12:49), fleet still down.
+
+Verdict: no drift.
+
+## 2026-08-17T08:00Z (run 13)
+
+- No movement: tracked heads unchanged, branch count 54 (baseline), no PR
+  updates since Aug 15, gist unchanged (2026-08-13 12:49), fleet still down.
+
+Verdict: no drift.
+
+## 2026-08-17T14:00Z (run 14) — LIVE BRANCH MOVED (informational, no adaptation needed)
+
+- deploy/sepolia-migration-20260731 moved be6cf898 -> 6cd460ba (merge of
+  feat/verifiable-reverse-adapters + gist-baseline PRs #390, #391, #392,
+  #402, #410, #411, #413). post-audit-2 / feat/public-resolver / main
+  unchanged; no new RC deploy branch; gist unchanged; fleet still down.
+- Event-surface diff (git diff be6cf898..6cd460ba over contracts/src):
+  - Indexed contracts (PermissionedRegistry, UserRegistry,
+    PermissionedResolver, ETHRegistrar): 1-line pragma pins only
+    (>=0.8.13 -> 0.8.25, PR #391) — ZERO event/function changes. Our
+    eventHandlers and abis/live|rc remain exactly correct.
+  - Sole event change in the entire diff: ImplementationApprovalChanged
+    REMOVED from ApprovedUpgradeGate.sol — a contract we do not index (the
+    gist's announced ApprovedUpgradeGate removal landing).
+  - HCA, reverse-registrar, migration/Graveyard, DNS files: not indexed.
+- No new address strings in deploy scripts/docs -> no redeployment
+  recorded; the branch move is RC-convergence onto the live recipe, not a
+  new deployment. If a redeploy follows, addresses will change -> RC-swap
+  runbook + test:pins tripwire.
+
+Verdict: drift detected on the live branch; classification informational
+(verified no impact on indexed event surface). Includes queued no-drift
+runs 11-13.
