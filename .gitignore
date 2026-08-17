@@ -9,10 +9,14 @@ tests/parity/snapshots/
 .gnd-data/
 .gnd-devnet/
 subgraph.devnet.yaml
-
 .desloppify/
 .claude/
 scorecard.png
 tests/.bin/
 tests/.latest.json
-scorecard.png
+
+# secret hygiene: any env shape, key material
+.env*
+!*.example
+*.pem
+*.key
