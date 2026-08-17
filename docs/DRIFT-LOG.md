@@ -160,3 +160,18 @@ Verdict: no drift.
 Verdict: drift detected on the live branch; classification informational
 (verified no impact on indexed event surface). Includes queued no-drift
 runs 11-13.
+
+## 2026-08-17T20:00Z (run 15) — LIVE BRANCH MOVED (informational, no adaptation needed)
+
+- deploy/sepolia-migration-20260731 moved 6cd460ba -> 7c6be3bb: a single
+  commit (style: solgrid-format Graveyard.t.sol, a TEST file). Zero
+  changes under contracts/src, zero event-declaration changes, zero new
+  deploy addresses -> class (c) informational. Other tracked heads,
+  branch count (54), gist (2026-08-13 12:49), and fleet (TLS down)
+  unchanged.
+- PR timestamp churn on Aug 17 (#388 makoto's deploy PR, #415, #354, #337):
+  no new comments on #388; #354's head unchanged (52beb140, event surface
+  classification stands); #415 already informational (run 9).
+
+Verdict: drift detected on the live branch; classification informational
+(test-file formatting only). Baseline updated to 7c6be3bb.
