@@ -65,6 +65,7 @@ scripts/               dev.sh, e2e-chain.sh, gen-devnet-networks.py, rainbow-moc
 docs/PLAN.md           the approved plan (context, decisions, timeline)
 docs/DIVERGENCES.md    known-divergence ledger (read this before comparing data)
 docs/DRIFT-MONITORING.md shareable spec of the automated drift checks (run it on any harness)
+AGENTS.md             instructions for coding agents (commands, hard rules, gotchas)
 .reference/            ens-subgraph + contracts-v2 clones (gitignored)
 ```
 
@@ -107,6 +108,15 @@ docs/DRIFT-MONITORING.md shareable spec of the automated drift checks (run it on
   AS compiler crash on null-equality with nullable `Bytes/ByteArray`
   (use truthiness), matchstick 0.6 mangling uint256-scale mock params, and
   the `--network` build writing templates back into the source manifest.
+
+## Drift monitoring
+
+An automated check runs every 6 hours against ENS's contracts repo (tracked
+branch heads, event-surface diffs, PRs, the breaking-changes gist, and the
+ENSNode fleet), classifies anything that moved, and implements the
+adaptation or opens an issue when it impacts us. Verdict history lives in
+`docs/DRIFT-LOG.md`; the shareable spec — including how to run the same
+check on any AI harness — is `docs/DRIFT-MONITORING.md`.
 
 ## Status
 
