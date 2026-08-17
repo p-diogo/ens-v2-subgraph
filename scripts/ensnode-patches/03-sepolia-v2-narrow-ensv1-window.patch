@@ -1,0 +1,13 @@
+diff --git a/packages/datasources/src/sepolia-v2.ts b/packages/datasources/src/sepolia-v2.ts
+index 17bf9b4..bf1c8d8 100644
+--- a/packages/datasources/src/sepolia-v2.ts
++++ b/packages/datasources/src/sepolia-v2.ts
+@@ -28,7 +28,7 @@ import { DatasourceNames, type ENSNamespace } from "./lib/types";
+  * The block after which ENSv1 contracts (like Resolver) must be indexed, since they could still be
+  * used with a sepolia-v2 deployment.
+  */
+-const SEPOLIA_ENSV1_DEPLOYMENT_BLOCK = 3702721;
++const SEPOLIA_ENSV1_DEPLOYMENT_BLOCK = 11465480; // PATCHED (parity run): dynamic Resolver events only from the beta window (original 3702721 scans all of Sepolia)
+ 
+ /**
+  * The earliest deploy block of the Sepolia ENSv1 test deployment.

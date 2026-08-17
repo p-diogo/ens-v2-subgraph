@@ -1,0 +1,19 @@
+diff --git a/apps/ensindexer/src/config/validations.ts b/apps/ensindexer/src/config/validations.ts
+index 355cf31..9803473 100644
+--- a/apps/ensindexer/src/config/validations.ts
++++ b/apps/ensindexer/src/config/validations.ts
+@@ -128,8 +128,12 @@ export function invariant_unigraphRequiresProtocolAcceleration(
+   const { value: config } = ctx;
+ 
+   if (
+-    config.plugins.includes(PluginName.Unigraph) &&
+-    !config.plugins.includes(PluginName.ProtocolAcceleration)
++    // PATCHED (local parity run): unigraph's L2 co-plugin (protocol-acceleration)
++  // pulls in Base/Linea/LUKSO/etc chains we don't index for sepolia-v2; the
++  // dependency is not needed for the sepolia-v2 ENSv2 path.
++  config.plugins.includes(PluginName.Unigraph) &&
++    !config.plugins.includes(PluginName.ProtocolAcceleration) &&
++    false
+   ) {
+     throw new Error(
+       `The '${PluginName.Unigraph}' plugin depends on the inclusion of '${PluginName.ProtocolAcceleration}' plugin.`,

@@ -78,46 +78,82 @@ GND_GRAPHQL=http://localhost:8000/subgraphs/name/subgraph-0 \
   npx tsx harness/onchain-parity.test.ts       # 10/10 names, expiry-exact
 ```
 
-## 5. Self-hosted ENSNode and record-level parity (L3, behavioral oracle)
+## 5. Self-hosted ENSNode (ENSIndexer) and record-level parity (L3 oracle)
+
+ENSNode's hosted instances have been unreachable (TLS break) since before
+this project started, and their `subgraph` plugin alone never materializes
+ENSv2 names anyway (its hosted /subgraph API is composed by a separate
+`ensapi` app). The working oracle setup runs ENSIndexer **alpha-style**
+(`PLUGINS=subgraph,unigraph`) locally and reads the **unigraph core tables**
+from Postgres directly — that is what `harness/ensnode-parity.test.ts`
+compares against, field by field (name, labelName, owner, registrant,
+registrationDate, Registration.expiryDate; suppressed divergences are
+ledgered in docs/DIVERGENCES.md §Oracle notes).
 
 ```bash
-# postgres for ponder
+# 1) postgres for ponder
 docker run -d --name ensindexer-pg -p 5434:5432 \
   -e POSTGRES_PASSWORD=password -e POSTGRES_DB=postgres postgres:16
 
-# ENSRainbow not-found mock (healing degrades to unhealed labels - fine for
-# parity: beta labels are event-carried)
+# 2) ENSRainbow not-found mock (advertises the searchlight label set;
+#    healing degrades to unhealed labels - fine for parity: beta labels
+#    are event-carried)
 node scripts/rainbow-mock.cjs &                # :3223
 
-# ENSIndexer (sepolia-v2, subgraph-compat) from the archived monorepo
-cd .reference/ensnode && pnpm install --ignore-scripts && cd apps/ensindexer
-cat > .env.local <<'EOF'
+# 3) ENSIndexer from the ARCHIVED namehash/ensnode monorepo (pnpm only;
+#    bun install fails on `catalog:` resolutions)
+git clone https://github.com/namehash/ensnode .reference/ensnode
+cd .reference/ensnode && pnpm install --ignore-scripts
+
+# 4) apply the three required local patches (kept in this repo):
+#    - unigraph's protocol-acceleration dependency would force indexing
+#      Base/Linea/LUKSO; bypass the validation (alpha-style plugins)
+#    - upstream crash: ExpiryUpdated on expired-then-renewed registrations
+#      fails an invariant assert (relaxed to a warning)
+#    - narrow the ENSv1 Resolver datasource to the beta window (skips
+#      scanning all of Sepolia v1 history; big backfill speedup)
+git apply ../../scripts/ensnode-patches/*.patch
+
+# 5) configure + run (alpha-style plugins, searchlight label set)
+cd apps/ensindexer
+cat > .env.local <<'ENVEOF'
 ENSINDEXER_SCHEMA_NAME=ensindexer_parity
 NAMESPACE=sepolia-v2
-SUBGRAPH_COMPAT=true
-RPC_URL_11155111=https://gateway.tenderly.co/public/sepolia
+PLUGINS=subgraph,unigraph
+LABEL_SET_ID=searchlight
+RPC_URL_11155111=https://YOUR_RPC_ENDPOINT
 ENSDB_URL=postgresql://postgres:password@localhost:5434/postgres
 ENSRAINBOW_URL=http://localhost:3223
 PONDER_TELEMETRY_DISABLED=true
-EOF
-PATH="$(pwd)/../../node_modules/.bin:$PATH" pnpm run start   # backfills ~3-5 min
+ENVEOF
+PATH="$(pwd)/../../node_modules/.bin:$PATH" pnpm run start
 ```
 
-Ponder serves its GraphQL where the subgraph plugin's entities are queryable
-(check the startup log for the port, default 42069). Run the comparison with
-the oracle pointed at it:
+**RPC note:** public pools rate-limit the backfill hard (-32005 retries
+eventually stall); a private RPC key (dRPC/Infura) makes this a non-issue
+and brings the initial backfill to ~3-5 minutes. Keep the key ONLY in this
+gitignored `.env.local` — never commit it, never paste it into chats.
+
+**Run the comparison** (the harness reads the oracle via `docker exec` on
+the `ensindexer-pg` container, so no oracle URL env is needed):
 
 ```bash
 GND_GRAPHQL=http://localhost:8000/subgraphs/name/subgraph-0 \
-  ENSNODE_URL=http://localhost:42069/graphql \
   npx tsx harness/ensnode-parity.test.ts
+# -> "all green", every name "matches oracle (name/label/owner/registrant/dates)"
+# oracle-only names printed as informational are pre-beta (June window)
+# registrations, out of our pinned start-block scope.
 ```
 
-Notes: ENSIndexer is a pnpm monorepo (bun install fails on `catalog:`).
-If ponder refuses to start with "schema was previously used", `docker exec
-ensindexer-pg psql -U postgres -c 'DROP SCHEMA ensindexer_parity CASCADE;'`.
-Public-RPC rate limits (-32005) are retried automatically; a paid RPC speeds
-up the initial backfill.
+`ENSNODE_OPTIONAL=1` skips the run when the oracle is down.
+
+Troubleshooting:
+- ponder refuses to start ("schema was previously used"): `docker exec
+  ensindexer-pg psql -U postgres -c 'DROP SCHEMA ensindexer_parity CASCADE;'`
+- supervisor restart-loops on flaky public L2 RPCs: kill and restart; ponder
+  resumes from its checkpoint.
+- if you edit the oracle SQL join: `registrar_address` is stored lowercase
+  and Postgres compares case-sensitively — keep the harness's lowercase pin.
 
 ## 6. RC-swap rehearsal (when ENS redeploys Sepolia)
 

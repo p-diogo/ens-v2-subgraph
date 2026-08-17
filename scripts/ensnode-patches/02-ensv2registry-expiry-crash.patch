@@ -1,0 +1,22 @@
+diff --git a/apps/ensindexer/src/plugins/unigraph/handlers/ensv2/ENSv2Registry.ts b/apps/ensindexer/src/plugins/unigraph/handlers/ensv2/ENSv2Registry.ts
+index ab3840b..4a586dc 100644
+--- a/apps/ensindexer/src/plugins/unigraph/handlers/ensv2/ENSv2Registry.ts
++++ b/apps/ensindexer/src/plugins/unigraph/handlers/ensv2/ENSv2Registry.ts
+@@ -254,10 +254,14 @@ export default function () {
+         throw new Error(`Invariant(ENSv2Registry:ExpiryUpdated): Expected registration.`);
+       }
+ 
+-      // Invariant: The existing Registration must not be expired.
++      // PATCHED (local parity run): expired-then-renewed names legitimately
++      // produce ExpiryUpdated after expiry (observed on the 2026-08-11 beta
++      // deployment's June-era names). Their original invariant crashes the
++      // indexer deterministically at that event; degrade to a warning and
++      // continue so indexing proceeds.
+       if (isRegistrationFullyExpired(registration, event.block.timestamp)) {
+-        throw new Error(
+-          `Invariant(ENSv2Registry:ExpiryUpdated): Expected unexpired Registration but got:\n${toJson(registration, { pretty: true })}`,
++        console.warn(
++          `PATCHED invariant bypass (ENSv2Registry:ExpiryUpdated): expired registration ${registration.id} updated at block ${event.block.number}`,
+         );
+       }
+ 

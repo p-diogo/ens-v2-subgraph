@@ -42,7 +42,7 @@ bash scripts/e2e-chain.sh down
 # L3 parity
 GND_GRAPHQL=http://localhost:8000/subgraphs/name/subgraph-0 \
   npx tsx harness/onchain-parity.test.ts          # on-chain ground truth
-GND_GRAPHQL=... npx tsx harness/ensnode-parity.test.ts  # ENSNode oracle
+GND_GRAPHQL=... npx tsx harness/ensnode-parity.test.ts  # ENSNode oracle (self-host: docs/REPRODUCTION.md par5)
 ```
 
 ## Repository map
