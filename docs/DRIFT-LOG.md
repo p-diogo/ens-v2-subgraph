@@ -224,3 +224,34 @@ post-audit-2 = 2c810c0b, live = 7c6be3bb.
 
 Verdict: drift detected (redeploy-class signal, ambiguous). Baselines
 updated: live = 892311a7, post-audit-2 = 67829cf3. Action: issue #1.
+
+## 2026-08-18T14:00Z (run 18)
+
+- No movement: tracked heads match run 17 baselines (892311a7 / 67829cf3 /
+  52beb140 / 48b3e2d3), branch count 54, gist unchanged (2026-08-13 12:49),
+  fleet still down. #354 updatedAt bump = metadata churn (head unchanged,
+  no new comments). Issue #1 (canonical-generation decision) still open,
+  no new evidence this run to advance it.
+
+Verdict: no drift.
+
+## 2026-08-19T02:00Z (run 19) — RC RESOLVER BRANCH MOVED (informational, no adaptation needed)
+
+- feat/public-resolver (PR #354) moved 52beb140 -> 5ef36f1e: merge of
+  post-audit-2 + "fix hca, add SharedResolver deploy" + "pin
+  SharedResolver". SharedResolver.sol itself changed by a PRAGMA PIN ONLY
+  (^0.8.13 -> 0.8.25); PermissionedResolver.sol likewise (via the merge) -
+  ZERO event-declaration changes on either resolver, so abis/rc and the
+  ResolverRC handler remain exact. The 6 event changes in the diff are the
+  known non-indexed HCA set (inherited); the 15 new address lines are the
+  SAME HCA/reverse-adapter set catalogued in run 17 (inherited via merge,
+  not new deployments). New SharedResolver deploy script = RC-prep signal
+  (resolver deploy tooling now exists); no new deploy branch, no
+  announcement. Issue #1 remains open; the "pin" commit strengthens the
+  RC-imminent read.
+- Other tracked heads, branch count (54), gist (2026-08-13 12:49), fleet
+  (down) all unchanged.
+
+Verdict: drift detected on the RC resolver branch; classification
+informational (pragma pin + deploy-script prep, event surface unchanged).
+Baseline updated: feat/public-resolver = 5ef36f1e.
