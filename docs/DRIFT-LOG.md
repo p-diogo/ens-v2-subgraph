@@ -192,3 +192,35 @@ Verdict: drift detected on the live branch; classification informational
 Verdict: drift detected on the RC base; classification informational
 (view-function addition, event surface unchanged). Baselines updated:
 post-audit-2 = 2c810c0b, live = 7c6be3bb.
+
+## 2026-08-18T08:40Z (run 17) — REDEPLOY-CLASS SIGNAL (ambiguous; issue #1 opened)
+
+- Both tracked branches moved again: live 7c6be3bb -> 892311a7 (merge of
+  post-audit-2: #337 reverse adapters, #414 getURI, #405, #403, #407
+  renewBatch), RC base 2c810c0b -> 67829cf3 (#376 UR slimming, #337).
+  Event surfaces of ALL contracts we index remain byte-identical in both
+  diffs (the 6 event-decl changes live exclusively in non-indexed HCA
+  contracts; ImplementationApprovalChanged moved from the removed
+  ApprovedUpgradeGate to StandaloneHCAFactory).
+- Addresses docs diverged: live-branch head records ETHRegistry 0xbdc8…,
+  RootRegistry 0x8115…, ETHRegistrar 0xa885…, VerifiableFactory 0x10dc…,
+  controllers 0x5c39/0x2fcf; RC base records a third set (0x67b7… + HCA
+  contracts at 0x1915/0xaff1/0x67a4/0x1b78 + DefaultReverseRegistrarHCA
+  adapter). None match our pins.
+- On-chain census (raw eth_getLogs): OUR pinned 0xDEDB registry = 10
+  LabelRegistered lifetime (last 11479252), quiet since; 0xbdc8 = 1,410
+  LabelRegistered from block 11416357, CONTINUOUSLY active to the chain
+  head; 0x67b7 = deployed but dormant. So activity flows through a
+  longer-lived parallel generation, NOT a redeploy of ours - and which
+  generation is canonical is a product question (gist unchanged, no
+  announcement, no new deploy branch).
+- Classification: class (b)-adjacent but AMBIGUOUS -> issue opened:
+  https://github.com/p-diogo/ens-v2-subgraph/issues/1 (re-pin vs wait vs
+  dual-index, with the oracle's 874-vs-10 registrar coverage wrinkle).
+- PRs: #398, #388 (makoto), #354 updated today - metadata churn; gist
+  unchanged (2026-08-13 12:49); fleet still down. Also noted: `cast logs`
+  CLI address+topic filtering silently returns empty on this gateway -
+  use raw eth_getLogs (as the harness does).
+
+Verdict: drift detected (redeploy-class signal, ambiguous). Baselines
+updated: live = 892311a7, post-audit-2 = 67829cf3. Action: issue #1.
