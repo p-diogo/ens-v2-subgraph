@@ -284,3 +284,29 @@ Baseline updated: feat/public-resolver = 5ef36f1e.
 Verdict: drift detected, relevant, RC-readiness confirmed (shapes
 verified); action = issue #1 evidence update. Baselines: post-audit-2 =
 f21e4b4a, feat/public-resolver = b999f1de.
+
+## 2026-08-19T14:00Z (run 21)
+
+- No movement: tracked heads match run 20 baselines (892311a7 / f21e4b4a /
+  b999f1de / 48b3e2d3), branch count 54, no PR updates since Aug 19 08:28,
+  gist unchanged (2026-08-13 12:49), fleet still down. Issue #1 open,
+  awaiting cutover confirmation to execute the RC-swap runbook.
+
+Verdict: no drift.
+
+## 2026-08-20T02:00Z (run 22) — RC RESOLVER BRANCH MOVED (informational, no adaptation needed)
+
+- feat/public-resolver b999f1de -> ec15440a: a single commit "add null
+  owner check" - ZERO event-declaration changes, zero new addresses ->
+  class (c) informational (post-RC-consolidation hardening).
+- Pattern count 54 -> 55: new matching branch feat/name-migration-helper
+  (committed 2026-08-19 19:36, "name MigrationHelper" - a rename of the
+  non-indexed MigrationHelper contract). Informational; count baseline
+  updated to 55. No other matching branch has committed since Aug 17
+  (date-checked via gh api).
+- Other heads, gist (2026-08-13 12:49), fleet (down) unchanged. PR
+  timestamp bump Aug 19 21:22 = #354 push metadata. Issue #1 still open.
+
+Verdict: drift detected on the RC resolver branch; classification
+informational (null-owner-check hardening). Baseline updated:
+feat/public-resolver = ec15440a, count = 55.
