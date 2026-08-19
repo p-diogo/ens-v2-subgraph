@@ -255,3 +255,32 @@ Verdict: no drift.
 Verdict: drift detected on the RC resolver branch; classification
 informational (pragma pin + deploy-script prep, event surface unchanged).
 Baseline updated: feat/public-resolver = 5ef36f1e.
+
+## 2026-08-19T08:45Z (run 20) — RELEVANT: RC RESOLVER CONSOLIDATED + DEPLOY RECIPE MERGED (issue #1 updated)
+
+- post-audit-2 67829cf3 -> f21e4b4a: makoto's deploy PR #388 MERGED -
+  addresses doc now records the full 0xbdc8 generation set (ETHRegistry
+  0xbdc8, ETHRegistrar 0xa885, RootRegistry 0x8115, controllers
+  0x5c39/0x2fcf, + BatchRegistrar/DNS mirror/L2 reverse adapters), i.e.
+  the repo's own lineage now points at the generation the run-17 census
+  showed carrying all live activity (our 0xDEDB pins are the outlier).
+- feat/public-resolver 5ef36f1e -> b999f1de: **SharedResolver.sol and
+  ISharedResolver.sol DELETED; the recordId event model moved INTO
+  PermissionedResolver.** Verified signature-by-signature vs abis/rc:
+  AddressUpdated / TextUpdated / ContenthashUpdated / ABIUpdated /
+  InterfaceUpdated / NameUpdated / Cleared are BYTE-IDENTICAL to what the
+  ResolverRC template indexes -> zero handler/ABI changes required; the
+  subgraph is RC-ready as designed. Removed: ApprovalUpdated (never
+  indexed). New: ResourceArgument (EAC resource->arg association, no v1
+  representation - G2 class, not indexed); DataUpdated already known and
+  unindexed by design (G2).
+- Classification: RELEVANT (redeploy-recipe + resolver-model
+  consolidation) but no code adaptation required - the adaptation gate
+  remains issue #1 (pin swap decision), updated with this evidence:
+  https://github.com/p-diogo/ens-v2-subgraph/issues/1#issuecomment-*
+- Other heads/main unchanged; branch count 54; PR activity = #354/#388
+  push metadata; gist unchanged (2026-08-13 12:49); fleet still down.
+
+Verdict: drift detected, relevant, RC-readiness confirmed (shapes
+verified); action = issue #1 evidence update. Baselines: post-audit-2 =
+f21e4b4a, feat/public-resolver = b999f1de.
