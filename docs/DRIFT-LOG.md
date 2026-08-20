@@ -310,3 +310,29 @@ Verdict: no drift.
 Verdict: drift detected on the RC resolver branch; classification
 informational (null-owner-check hardening). Baseline updated:
 feat/public-resolver = ec15440a, count = 55.
+
+## 2026-08-20T08:15Z (run 23) — RELEVANT MILESTONE: PR #354 MERGED INTO RC BASE (adaptation already in place)
+
+- **PR #354 merged into post-audit-2 (2026-08-20 01:11, c6956ce5)**; the
+  feat/public-resolver branch was deleted (pattern count 55 -> 53; the
+  other deletion is an old matching branch - count baseline now 53).
+  post-audit-2: f21e4b4a -> a971bd64 (#354 + "Name MigrationHelper" #416).
+- Authoritative merged RC resolver surface (all resolver contracts at
+  a971bd64): ABIUpdated, AddressUpdated, ContenthashUpdated, DataUpdated,
+  InterfaceUpdated, NameUpdated, TextUpdated, Cleared, Linked,
+  ResolverCreated, ResourceArgument - purely the recordId model; ZERO
+  *Changed events remain in the resolver family. Registry/registrar
+  event surfaces unchanged by this merge.
+- Impact on us: ResolverRC indexes 7 of 11 (shapes verified run 20);
+  Linked/DataUpdated/ResourceArgument/ResolverCreated remain
+  not-indexed-by-design (G2). ResolverLive goes quiet at RC by design
+  (its events no longer exist in the RC resolver family; it keeps
+  serving live-era resolvers on current pins). **No adaptation needed -
+  the dual-generation design absorbed the merge.**
+- Classification: RELEVANT (the gist's indexer-breaking change landed),
+  adaptation already implemented. Issue #1 updated with the milestone;
+  the only remaining RC step is the deployment + pin swap.
+
+Verdict: drift detected, relevant milestone; action = issue #1 comment.
+Baselines: post-audit-2 = a971bd64, feat/public-resolver = (deleted),
+count = 53. Gist (2026-08-13 12:49) and fleet (down) unchanged.
